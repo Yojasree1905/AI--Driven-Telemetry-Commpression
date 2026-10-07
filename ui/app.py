@@ -30,6 +30,8 @@ from src.explain import (
     compute_lime_explanation
 )
 from src.generator import generate_synthetic_dataset
+from src.mitre_mapping import get_mitre_details
+from src.pdf_generator import generate_security_incident_report_pdf
 
 # -----------------------------------------------------------------------------
 # PAGE CONFIGURATION & ENTERPRISE STYLING
@@ -539,6 +541,7 @@ elif page == "Single Packet Threat Inspector":
         row = res_df.iloc[0]
         
         prob_df = get_attack_category_probabilities(full_df)
+        row_prob = prob_df.iloc[0] if not prob_df.empty else pd.Series()
         dominant_cat = prob_df.iloc[0].idxmax().replace(' (%)', '') if not prob_df.empty else 'Unknown'
         
         st.markdown("---")
@@ -612,6 +615,38 @@ elif page == "Single Packet Threat Inspector":
                     f"* **Action Required**: No mitigation required — connection allowed to proceed."
                 )
 
+        # MITRE ATT&CK Framework Intelligence Profile
+        mitre_category = dominant_cat if "Attack" in row['Hybrid Verdict'] else ("Zero-Day Anomaly" if "Zero-Day" in row['Hybrid Verdict'] else "Normal")
+        mitre_info = get_mitre_details(mitre_category)
+        
+        st.markdown("---")
+        st.subheader("MITRE ATT&CK Framework Threat Intelligence Profile")
+        
+        c_m1, c_m2, c_m3 = st.columns([1, 1, 1.2])
+        with c_m1:
+            st.metric("MITRE Technique ID", f"{mitre_info['technique_id']}")
+        with c_m2:
+            st.metric("Tactical Phase", mitre_info['tactic'])
+        with c_m3:
+            st.metric("Threat Severity Rating", mitre_info['severity'])
+            
+        st.markdown(f"**Technique Name**: `{mitre_info['technique_name']}` | **Sub-technique**: `{mitre_info['sub_technique']}`")
+        st.write(f"*{mitre_info['description']}*")
+        
+        col_pdf_btn, col_mitre_link = st.columns([1.5, 1])
+        with col_pdf_btn:
+            pdf_bytes = generate_security_incident_report_pdf(row, prob_df, mitre_info, dominant_cat, input_data)
+            st.download_button(
+                "📄 Download Executive PDF Security Incident Report",
+                data=pdf_bytes,
+                file_name=f"security_incident_report_{mitre_category.lower().replace(' ', '_')}.pdf",
+                mime="application/pdf",
+                type="primary",
+                use_container_width=True
+            )
+        with col_mitre_link:
+            st.link_button(f"🔗 View Official MITRE ATT&CK Spec ({mitre_info['technique_id']})", mitre_info['mitre_url'], use_container_width=True)
+
         # Multi-Class Attack Family Probability Distribution
         st.markdown("---")
         st.subheader("Multi-Class Attack Family Probability Distribution (%)")
@@ -642,6 +677,11 @@ elif page == "Single Packet Threat Inspector":
             for spine in ax_pbar.spines.values():
                 spine.set_color('#334155')
             st.pyplot(fig_pbar)
+            st.markdown("""
+            **Graph Explanation (Multi-Class Probability Breakdown):**
+            * **Category Probabilities**: Displays the percentage confidence predicted by the multi-class Softmax classifier for each of the 10 traffic categories (Normal + 9 attack families).
+            * **Bar Length**: Longer horizontal bars represent higher model confidence for that specific attack taxonomy or baseline normal traffic.
+            """)
 
         # Raw Technical Connection Output
         st.markdown("---")
@@ -760,7 +800,7 @@ elif page == "Batch Network Log Analyzer":
         filtered_audit = audit_df[audit_df['Final Threat Verdict'].isin(filter_verdict)]
         st.dataframe(filtered_audit, use_container_width=True)
         
-        col_exp1, col_exp2 = st.columns(2)
+        col_exp1, col_exp2, col_exp3 = st.columns(3)
         with col_exp1:
             csv_audit_export = audit_df.to_csv(index=False).encode('utf-8')
             st.download_button(
@@ -768,7 +808,8 @@ elif page == "Batch Network Log Analyzer":
                 csv_audit_export,
                 "security_audit.csv",
                 "text/csv",
-                type="primary"
+                type="primary",
+                use_container_width=True
             )
         with col_exp2:
             technical_df = pd.concat(
@@ -780,7 +821,29 @@ elif page == "Batch Network Log Analyzer":
                 "Export Raw 42-Feature Logs CSV",
                 csv_raw_export,
                 "raw_technical_network_logs.csv",
-                "text/csv"
+                "text/csv",
+                use_container_width=True
+            )
+        with col_exp3:
+            first_flagged_idx = 0
+            flagged_rows = res_df[res_df['Status'].isin(['Attack', 'Zero-Day Anomaly'])]
+            if not flagged_rows.empty:
+                first_flagged_idx = flagged_rows.index[0]
+            
+            sample_row = res_df.iloc[first_flagged_idx]
+            sample_prob_df = prob_df.iloc[[first_flagged_idx]] if not prob_df.empty else pd.DataFrame()
+            sample_dom_cat = sample_prob_df.iloc[0].idxmax().replace(' (%)', '') if not sample_prob_df.empty else 'Unknown'
+            sample_mitre_cat = sample_dom_cat if "Attack" in sample_row['Hybrid Verdict'] else ("Zero-Day Anomaly" if "Zero-Day" in sample_row['Hybrid Verdict'] else "Normal")
+            sample_mitre = get_mitre_details(sample_mitre_cat)
+            sample_raw_dict = full_df.iloc[first_flagged_idx].to_dict()
+            
+            pdf_batch_bytes = generate_security_incident_report_pdf(sample_row, sample_prob_df, sample_mitre, sample_dom_cat, sample_raw_dict)
+            st.download_button(
+                "📄 Download Executive PDF Incident Report",
+                data=pdf_batch_bytes,
+                file_name=f"batch_incident_report_{sample_mitre_cat.lower().replace(' ', '_')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
             )
 
 # -----------------------------------------------------------------------------
@@ -883,6 +946,15 @@ elif page == "XAI Threat Audit Center":
                 try:
                     fig_shap = compute_shap_summary(xgb_model, X_sample_trans[:40], preprocessor)
                     st.pyplot(fig_shap)
+                    st.markdown("""
+                    **Graph Explanation (SHAP Summary Plot):**
+                    * **Feature Ranking**: Features are listed vertically by overall impact on model predictions (most influential at top).
+                    * **Feature Value (Color)**: **Red dots** indicate high values for that feature; **Blue dots** indicate low values.
+                    * **Impact Direction (Horizontal Position)**:
+                        * **Right Side (+ SHAP Value)**: Feature value increases the probability of an **Attack / Anomaly**.
+                        * **Left Side (- SHAP Value)**: Feature value pushes the prediction toward **Normal Authorized Traffic**.
+                    * **Key Takeaway**: Clustering of red dots on the far right shows that elevated packet rates (`rate`), time-to-live values (`sttl`), and connection state parameters (`state`) strongly drive cyber attack detections.
+                    """)
                 except Exception as e:
                     st.error(f"SHAP calculation notice: {e}")
                     
@@ -899,6 +971,12 @@ elif page == "XAI Threat Audit Center":
             ax_bar.xaxis.label.set_color('#ffffff')
             ax_bar.yaxis.label.set_color('#ffffff')
             st.pyplot(fig_bar)
+            st.markdown("""
+            **Graph Explanation (Feature Importance Ranking):**
+            * **Top Decision Drivers**: Displays the top 12 network features that the supervised ensemble model relies on most across all analyzed network connections.
+            * **Bar Length**: Indicates normalized global importance weight. Longer bars mean higher influence in distinguishing normal traffic from cyber attacks.
+            * **Key Takeaway**: Time-to-Live (`sttl`), connection state TTL (`ct_state_ttl`), and flow rates (`rate`) are the primary network telemetry attributes used for threat identification.
+            """)
 
     with tab_lime:
         st.markdown("### LIME Local Instance Explanation")
@@ -931,6 +1009,19 @@ elif page == "XAI Threat Audit Center":
                     plt.tight_layout()
                     st.pyplot(fig_lime)
                     
+                    st.markdown(f"""
+                    **Graph Explanation (LIME Explanation for Connection #{sample_idx}):**
+                    * **Red Bars (Positive Weight)**: Feature conditions (e.g. `sttl > 62.0`) that **increased threat risk** and pushed the model to declare an **Attack**.
+                    * **Green Bars (Negative Weight)**: Feature conditions (e.g. `rate <= 10.0`) that **reduced threat risk** and pushed the decision toward **Normal Traffic**.
+                    * **Bar Length**: Demonstrates the mathematical weight of each attribute rule on this specific connection's classification.
+                    """)
+                    
                 with col_l2:
                     st.markdown("#### Feature Contribution Weights")
                     st.dataframe(df_lime[['Feature Condition', 'Contribution Weight', 'Effect']], use_container_width=True)
+                    st.markdown("""
+                    **Table Explanation:**
+                    * **Feature Condition**: Exact numerical boundary rule evaluated for this specific network packet.
+                    * **Contribution Weight**: Positive values (+ Threat) push toward attack classification; negative values (- Safe) push toward normal baseline.
+                    * **Effect**: Clear summary of whether the attribute rule increases threat risk or supports normal traffic baseline.
+                    """)

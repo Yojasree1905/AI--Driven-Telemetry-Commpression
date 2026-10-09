@@ -262,11 +262,11 @@ def hybrid_predict_records(xgb_model, rf_model, iso_model, preprocessor, df):
     rf_probability = rf_model.predict_proba(X)[:, 1]
     
     # Supervised attack signal requires strong signature consensus across both models
-    is_known_attack = (xgb_probability >= 0.70) & (rf_probability >= 0.65)
+    is_known_attack = (xgb_probability >= 0.72) & (rf_probability >= 0.65)
     
     # Isolation Forest structural anomaly detection
     iso_decision = -iso_model.decision_function(X)
-    isolation_anomaly = (iso_model.predict(X) == -1) | (iso_decision >= 0.00)
+    isolation_anomaly = (iso_model.predict(X) == -1) | (iso_decision >= -0.01)
     
     # Zero-Day anomaly: cleared by supervised signature models, but flagged as structural anomaly
     is_zeroday = (~is_known_attack) & isolation_anomaly

@@ -104,26 +104,26 @@ def generate_synthetic_dataset(technique="Mixed Traffic Stream", n_samples=50, r
             ct_dst_sport_ltm = int(np.random.randint(5, 15))
             ct_dst_src_ltm = int(np.random.randint(10, 25))
             
-        else: # Zero-Day Anomaly
-            proto = 'udp'
-            service = 'dns'
-            state = 'INT'
-            dur = round(float(np.random.uniform(0.000005, 0.00005)), 6)
-            spkts = 2
-            dpkts = 0
-            sbytes = 114
-            dbytes = 0
-            rate = round(float(spkts / (dur + 1e-7)), 2)
-            sttl = 254
-            dttl = 0
-            sload = round(float(np.random.uniform(30000000.0, 80000000.0)), 2)
-            dload = 0.0
-            ct_srv_src = int(np.random.randint(12, 20))
-            ct_state_ttl = 2
-            ct_dst_ltm = int(np.random.randint(12, 20))
-            ct_src_dport_ltm = int(np.random.randint(12, 20))
-            ct_dst_sport_ltm = int(np.random.randint(12, 20))
-            ct_dst_src_ltm = int(np.random.randint(12, 20))
+        elif traffic_type == "zeroday":
+            proto = 'tcp'
+            service = 'http'
+            state = 'FIN'
+            dur = round(float(np.random.uniform(12.0, 45.0)), 6)
+            spkts = int(np.random.randint(2, 4))
+            dpkts = int(np.random.randint(1, 3))
+            sbytes = int(np.random.randint(12000, 35000))
+            dbytes = int(np.random.randint(40, 150))
+            rate = round(float((spkts + dpkts) / (dur + 0.001)), 2)
+            sttl = 64
+            dttl = 62
+            sload = round(float(sbytes * 8 / (dur + 0.001)), 2)
+            dload = round(float(dbytes * 8 / (dur + 0.001)), 2)
+            ct_srv_src = int(np.random.randint(1, 4))
+            ct_state_ttl = 1
+            ct_dst_ltm = int(np.random.randint(1, 4))
+            ct_src_dport_ltm = 1
+            ct_dst_sport_ltm = 1
+            ct_dst_src_ltm = int(np.random.randint(1, 4))
 
         row = {
             'dur': dur, 'proto': proto, 'service': service, 'state': state,

@@ -260,21 +260,27 @@ def hybrid_predict_records(xgb_model, rf_model, iso_model, preprocessor, df):
     X = preprocessor.transform(align_features(df))
     xgb_probability = xgb_model.predict_proba(X)[:, 1]
     rf_probability = rf_model.predict_proba(X)[:, 1]
-    supervised_probability = np.maximum(xgb_probability, rf_probability)
-    avg_supervised_prob = (xgb_probability + rf_probability) / 2.0
-    supervised_attack = supervised_probability >= 0.5
-    isolation_anomaly = iso_model.predict(X) == -1
+    
+    # Supervised attack signal requires strong signature consensus across both models
+    is_known_attack = (xgb_probability >= 0.70) & (rf_probability >= 0.65)
+    
+    # Isolation Forest structural anomaly detection
     iso_decision = -iso_model.decision_function(X)
+    isolation_anomaly = (iso_model.predict(X) == -1) | (iso_decision >= 0.00)
+    
+    # Zero-Day anomaly: cleared by supervised signature models, but flagged as structural anomaly
+    is_zeroday = (~is_known_attack) & isolation_anomaly
     
     status = np.where(
-        supervised_attack,
+        is_known_attack,
         'Attack',
-        np.where(isolation_anomaly, 'Zero-Day Anomaly', 'Normal'),
+        np.where(is_zeroday, 'Zero-Day Anomaly', 'Normal')
     )
     
-    normal_risk = np.round(avg_supervised_prob * 30.0, 1)
-    attack_risk = np.round(supervised_probability * 100.0, 1)
-    zeroday_risk = np.round(np.clip(70.0 + iso_decision * 150.0, 70.0, 95.0), 1)
+    avg_prob = (xgb_probability + rf_probability) / 2.0
+    normal_risk = np.round(np.clip(avg_prob * 25.0, 5.0, 22.0), 1)
+    attack_risk = np.round(np.maximum(xgb_probability, rf_probability) * 100.0, 1)
+    zeroday_risk = np.round(np.clip(72.0 + iso_decision * 140.0, 70.0, 95.0), 1)
     
     risk = np.where(
         status == 'Attack',

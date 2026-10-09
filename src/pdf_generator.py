@@ -7,13 +7,17 @@ and 42-feature network packet telemetry.
 import io
 from datetime import datetime
 
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import inch
-from reportlab.platypus import (
-    HRFlowable, Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-)
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import inch
+    from reportlab.platypus import (
+        HRFlowable, Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    )
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
 
 
 def generate_security_incident_report_pdf(row, prob_df, mitre_info, dominant_cat, raw_feat_dict):
@@ -29,6 +33,35 @@ def generate_security_incident_report_pdf(row, prob_df, mitre_info, dominant_cat
     Returns:
         bytes: Compiled PDF file buffer.
     """
+    if not REPORTLAB_AVAILABLE:
+        fallback_txt = f"""===================================================================
+XAI ZERO-DAY INTRUSION DETECTION SYSTEM - INCIDENT REPORT
+===================================================================
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+Threat Verdict: {row.get('Hybrid Verdict', 'Normal')}
+Calibrated Threat Risk: {row.get('Risk Score (%)', '0.0')}%
+Dominant Attack Category: {dominant_cat}
+MITRE Technique ID: {mitre_info.get('technique_id', 'N/A')} ({mitre_info.get('tactic', 'N/A')})
+
+MITRE ATT&CK Metadata:
+- Technique Name: {mitre_info.get('technique_name', 'N/A')}
+- Sub-technique: {mitre_info.get('sub_technique', 'N/A')}
+- Severity Rating: {mitre_info.get('severity', 'N/A')}
+- Description: {mitre_info.get('description', 'N/A')}
+
+Model Ensemble Breakdown:
+- Isolation Forest: {row.get('Isolation Forest', 'N/A')}
+- Random Forest: {row.get('Random Forest', 'N/A')}
+- XGBoost Classifier: {row.get('XGBoost', 'N/A')}
+
+Containment Command:
+{mitre_info.get('containment_command', '# Block command').format(src_ip=raw_feat_dict.get('src_ip', '192.168.1.100'), dst_port=raw_feat_dict.get('dst_port', 80), proto=raw_feat_dict.get('proto', 'tcp'), user_id='root')}
+===================================================================
+(To generate publication-grade PDF files, run: pip install reportlab)
+"""
+        return fallback_txt.encode('utf-8')
+
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,

@@ -40,7 +40,7 @@ from sklearn.metrics import (
 # PAGE CONFIGURATION & ENTERPRISE STYLING
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="XAI Enterprise Intrusion Detection System",
+    page_title="XAI Enterprise Intrusion Prediction System",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -196,7 +196,7 @@ st.sidebar.markdown("**Live Generator**: Dynamic Scenario Engine")
 st.markdown("""
 <div class="main-header">
     <div>
-        <div class="main-header-title">Real-Time XAI Intrusion Detection System</div>
+        <div class="main-header-title">Real-Time XAI Intrusion Prediction System</div>
         <div class="main-header-subtitle">Predictive Network Traffic Classification & Zero-Day Threat Analytics Engine</div>
     </div>
     <div class="status-indicator">

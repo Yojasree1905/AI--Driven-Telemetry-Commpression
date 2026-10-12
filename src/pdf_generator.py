@@ -35,7 +35,7 @@ def generate_security_incident_report_pdf(row, prob_df, mitre_info, dominant_cat
     """
     if not REPORTLAB_AVAILABLE:
         fallback_txt = f"""===================================================================
-XAI ZERO-DAY INTRUSION DETECTION SYSTEM - INCIDENT REPORT
+XAI ZERO-DAY INTRUSION PREDICTION SYSTEM - INCIDENT REPORT
 ===================================================================
 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
@@ -142,7 +142,7 @@ Containment Command:
     # 1. Header Title Banner
     header_data = [
         [
-            Paragraph("<b>XAI ZERO-DAY INTRUSION DETECTION SYSTEM</b>", title_style),
+            Paragraph("<b>XAI ZERO-DAY INTRUSION PREDICTION SYSTEM</b>", title_style),
             Paragraph(f"<b>CONFIDENTIAL REPORT</b><br/>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", subtitle_style)
         ]
     ]

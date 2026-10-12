@@ -1,4 +1,4 @@
-# XAI-ZERODAY-IDS: Explainable AI-Powered Zero-Day Intrusion Detection System
+# XAI-ZERODAY-IDS: Explainable AI-Powered Zero-Day Intrusion Prediction System
 
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Framework](https://img.shields.io/badge/UI-Streamlit-red.svg)](https://streamlit.io/)

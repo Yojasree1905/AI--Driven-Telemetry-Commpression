@@ -30,7 +30,7 @@
 
 ## Executive Summary
 
-**XAI-ZERODAY-IDS** is an enterprise-grade, real-time Intrusion Detection System (IDS) engineered for Next-Generation Security Operations Centers (SOC). Traditional intrusion detection frameworks rely strictly on static signature databases, rendering them ineffective against previously unseen, zero-day cyber threats. Conversely, deep learning and black-box machine learning approaches produce alerts without human-understandable rationale, leading to alert fatigue and delayed incident response.
+**XAI-ZERODAY-IDS** is an enterprise-grade, real-time Intrusion Prediction System (IPS) engineered for Next-Generation Security Operations Centers (SOC). Traditional intrusion detection frameworks rely strictly on static signature databases, rendering them ineffective against previously unseen, zero-day cyber threats. Conversely, deep learning and black-box machine learning approaches produce alerts without human-understandable rationale, leading to alert fatigue and delayed incident response.
 
 **XAI-ZERODAY-IDS** addresses both challenges by uniting supervised machine learning classifiers (**XGBoost**, **Random Forest**) with an unsupervised anomaly detector (**Isolation Forest**) within a multi-model consensus architecture. Furthermore, the system integrates **Explainable AI (XAI)** frameworks (**SHAP** and **LIME**), enabling security analysts to inspect global feature importance rankings and local instance-level decision drivers for every detected packet.
 
@@ -441,7 +441,7 @@ After launching, open your browser and navigate to:
 
 ## 📄 License & Author
 
-Developed for real-time explainable cybersecurity research and multi-model intrusion detection optimization.
+Developed for real-time explainable cybersecurity research and multi-model intrusion prediction optimization.
 
 * **Developer**: Yojasree (`Yojasree1905`)
 * **License**: MIT License — open for academic & commercial reuse. See [LICENSE](LICENSE) for details.

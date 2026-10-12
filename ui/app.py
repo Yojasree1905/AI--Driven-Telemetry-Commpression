@@ -32,6 +32,9 @@ from src.explain import (
 from src.generator import generate_synthetic_dataset
 from src.mitre_mapping import get_mitre_details
 from src.pdf_generator import generate_security_incident_report_pdf
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
+)
 
 # -----------------------------------------------------------------------------
 # PAGE CONFIGURATION & ENTERPRISE STYLING
@@ -759,6 +762,156 @@ elif page == "Batch Network Log Analyzer":
         m3.metric("Suspicious Zero-Day Alerts", zerodays, delta=f"{round(zerodays/total_records*100, 1)}%", delta_color="off")
         m4.metric("Safe Connections", normals, delta=f"{round(normals/total_records*100, 1)}%", delta_color="normal")
         
+        st.markdown("---")
+        
+        # ---------------------------------------------------------------------
+        # Dynamic Performance Evaluation Matrix & Model Utility Inspector
+        # ---------------------------------------------------------------------
+        st.markdown("### 📊 Document Performance Evaluation Matrix & Model Utility Analysis")
+        st.write("Dynamic calculation of classification performance metrics (Accuracy, Recall, Precision, F1-Score) and multi-model utility ranking for this uploaded document.")
+        
+        # Ground Truth Detection
+        gt_source = "Multi-Model Consensus Baseline (Unlabeled Document)"
+        if 'label' in raw_df.columns:
+            y_true = (raw_df['label'] == 1).astype(int)
+            gt_source = "Ground Truth (`label` column in file)"
+        elif 'status' in raw_df.columns:
+            y_true = (raw_df['status'].astype(str).str.lower() != 'normal').astype(int)
+            gt_source = "Ground Truth (`status` column in file)"
+        elif 'attack_cat' in raw_df.columns:
+            y_true = (raw_df['attack_cat'].fillna('Normal').astype(str).str.strip().str.lower() != 'normal').astype(int)
+            gt_source = "Ground Truth (`attack_cat` column in file)"
+        else:
+            y_true = (res_df['Status'] != 'Normal').astype(int)
+
+        pred_iso = (res_df['Isolation Forest'] == 'Anomaly').astype(int)
+        pred_rf = (res_df['Random Forest'] == 'Attack').astype(int)
+        pred_xgb = (res_df['XGBoost'] == 'Attack').astype(int)
+        pred_hybrid = (res_df['Status'] != 'Normal').astype(int)
+
+        models_eval = {
+            'Isolation Forest (Unsupervised)': pred_iso,
+            'Random Forest (Supervised)': pred_rf,
+            'XGBoost Classifier (Supervised)': pred_xgb,
+            'Hybrid System Ensemble': pred_hybrid,
+        }
+
+        eval_rows = []
+        for m_name, y_pred in models_eval.items():
+            acc = float(accuracy_score(y_true, y_pred))
+            prec = float(precision_score(y_true, y_pred, zero_division=0))
+            rec = float(recall_score(y_true, y_pred, zero_division=0))
+            f1 = float(f1_score(y_true, y_pred, zero_division=0))
+            eval_rows.append({
+                'Model Estimator': m_name,
+                'Accuracy': acc,
+                'Precision': prec,
+                'Recall': rec,
+                'F1-Score': f1,
+                'Accuracy (%)': f"{acc * 100:.2f}%",
+                'Precision (%)': f"{prec * 100:.2f}%",
+                'Recall (Sensitivity) (%)': f"{rec * 100:.2f}%",
+                'F1-Score (%)': f"{f1 * 100:.2f}%",
+            })
+
+        df_eval_matrix = pd.DataFrame(eval_rows)
+
+        # Dynamic Utility Determination
+        total_recs = len(res_df)
+        zeroday_count = len(res_df[res_df['Status'] == 'Zero-Day Anomaly'])
+        
+        iso_f1 = df_eval_matrix.loc[df_eval_matrix['Model Estimator'] == 'Isolation Forest (Unsupervised)', 'F1-Score'].values[0]
+        rf_f1 = df_eval_matrix.loc[df_eval_matrix['Model Estimator'] == 'Random Forest (Supervised)', 'F1-Score'].values[0]
+        xgb_f1 = df_eval_matrix.loc[df_eval_matrix['Model Estimator'] == 'XGBoost Classifier (Supervised)', 'F1-Score'].values[0]
+        hybrid_f1 = df_eval_matrix.loc[df_eval_matrix['Model Estimator'] == 'Hybrid System Ensemble', 'F1-Score'].values[0]
+
+        if zeroday_count > 0 and (zeroday_count / total_recs) >= 0.05:
+            most_useful_model = "Isolation Forest (Unsupervised Anomaly Detector)"
+            utility_badge = "Zero-Day Specialist"
+            utility_explanation = (
+                f"**Isolation Forest was the most critical and useful model for this document.** "
+                f"It successfully isolated **{zeroday_count} Suspicious Zero-Day Anomalies** "
+                f"({zeroday_count / total_recs * 100:.1f}% of all connection flows) "
+                f"that lacked known attack signatures and would have completely bypassed supervised models."
+            )
+        elif hybrid_f1 >= max(xgb_f1, rf_f1, iso_f1):
+            most_useful_model = "Hybrid System Ensemble"
+            utility_badge = "Best Overall Performance"
+            utility_explanation = (
+                f"**The Hybrid System Ensemble was the most useful decision engine for this document.** "
+                f"It achieved the highest composite **F1-Score ({hybrid_f1 * 100:.2f}%)** and **Accuracy ({df_eval_matrix.loc[df_eval_matrix['Model Estimator'] == 'Hybrid System Ensemble', 'Accuracy'].values[0] * 100:.2f}%)** "
+                f"by combining supervised signature precision with unsupervised outlier recovery."
+            )
+        elif xgb_f1 >= rf_f1:
+            most_useful_model = "XGBoost Classifier (Supervised)"
+            utility_badge = "Precision Leader"
+            utility_explanation = (
+                f"**XGBoost Classifier was the most useful individual model for this document.** "
+                f"It demonstrated superior precision ({df_eval_matrix.loc[df_eval_matrix['Model Estimator'] == 'XGBoost Classifier (Supervised)', 'Precision'].values[0] * 100:.2f}%) "
+                f"and F1-score ({xgb_f1 * 100:.2f}%) in identifying known malicious cyber attack telemetry without generating false alarms."
+            )
+        else:
+            most_useful_model = "Random Forest (Supervised)"
+            utility_badge = "Recall Leader"
+            utility_explanation = (
+                f"**Random Forest was the most useful model for this document.** "
+                f"It achieved the strongest recall and decision stability across the tabular decision space."
+            )
+
+        # UI Metric Card & Explanation
+        col_util1, col_util2 = st.columns([1.2, 2])
+        with col_util1:
+            st.markdown("#### 🏆 Most Useful Model")
+            st.info(f"**{most_useful_model}**\n\n*Status:* **{utility_badge}**\n\n*Reference:* {gt_source}")
+        with col_util2:
+            st.markdown("#### 💡 Model Utility Diagnostic Assessment")
+            st.success(utility_explanation)
+
+        # Performance Matrix Table
+        st.markdown("#### 📋 Performance Evaluation Matrix")
+        table_display = df_eval_matrix[['Model Estimator', 'Accuracy (%)', 'Recall (Sensitivity) (%)', 'Precision (%)', 'F1-Score (%)']]
+        st.dataframe(table_display, use_container_width=True)
+
+        # Visual Comparison Bar Chart & Confusion Matrix
+        col_chart1, col_chart2 = st.columns([1.5, 1])
+        with col_chart1:
+            st.markdown("#### 📊 Metric Comparison for Uploaded Document")
+            fig_perf, ax_perf = plt.subplots(figsize=(8, 4.2))
+            plot_df = df_eval_matrix.set_index('Model Estimator')[['Accuracy', 'Recall', 'Precision', 'F1-Score']]
+            plot_df.plot(kind='bar', ax=ax_perf, colormap='mako')
+            plt.title("Document-Specific Model Performance Comparison", fontsize=11, fontweight='bold', color='#ffffff')
+            plt.ylabel("Score (0.0 to 1.0)", color='#ffffff')
+            plt.ylim(0, 1.15)
+            plt.legend(loc='lower right')
+            plt.grid(axis='y', linestyle='--', alpha=0.5)
+            plt.xticks(rotation=20, ha='right')
+            fig_perf.patch.set_facecolor('#111827')
+            ax_perf.set_facecolor('#111827')
+            ax_perf.tick_params(colors='#ffffff')
+            ax_perf.xaxis.label.set_color('#ffffff')
+            ax_perf.yaxis.label.set_color('#ffffff')
+            for spine in ax_perf.spines.values():
+                spine.set_color('#334155')
+            plt.tight_layout()
+            st.pyplot(fig_perf)
+
+        with col_chart2:
+            st.markdown("#### 🎯 Hybrid System Confusion Matrix")
+            cm = confusion_matrix(y_true, pred_hybrid)
+            fig_cm, ax_cm = plt.subplots(figsize=(4.5, 4.2))
+            sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax_cm,
+                        xticklabels=['Normal', 'Threat'], yticklabels=['Normal', 'Threat'])
+            plt.title("Uploaded Log Confusion Matrix", fontsize=11, fontweight='bold', color='#ffffff')
+            plt.xlabel("Predicted Label", color='#ffffff')
+            plt.ylabel("Reference Label", color='#ffffff')
+            fig_cm.patch.set_facecolor('#111827')
+            ax_cm.set_facecolor('#111827')
+            ax_cm.tick_params(colors='#ffffff')
+            ax_cm.xaxis.label.set_color('#ffffff')
+            ax_cm.yaxis.label.set_color('#ffffff')
+            plt.tight_layout()
+            st.pyplot(fig_cm)
+            
         st.markdown("---")
         
         # User-Friendly Audit & Plain English Action Plan

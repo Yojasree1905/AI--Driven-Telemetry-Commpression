@@ -26,9 +26,6 @@ ENGINE_CONFIG_PATH = MODEL_DIR / 'engine_config.json'
 METRICS_PATH = RESULTS_DIR / 'metrics.json'
 MODEL_CARD_PATH = RESULTS_DIR / 'model_card.md'
 
-# ---------------------------------------------------------------------------
-# Feature schema (UNSW-NB15, 42 predictive columns)
-# ---------------------------------------------------------------------------
 CATEGORICAL_COLS = ['proto', 'service', 'state']
 
 NUMERICAL_COLS = [

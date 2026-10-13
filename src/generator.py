@@ -1,3 +1,4 @@
+from typing import Tuple
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -158,3 +159,32 @@ def generate_synthetic_dataset(technique="Mixed Traffic Stream", n_samples=50, r
         
     df_gen = pd.DataFrame(records)
     return df_gen[ALL_FEATURES]
+
+
+def generate_volumetric_telemetry_csv(target_size_mb: float = 5.2) -> Tuple[pd.DataFrame, bytes]:
+    """Generates heavy, high-volume realistic network telemetry exceeding bandwidth thresholds.
+    
+    Produces a dataset with 30,000+ records to simulate an oversized telemetry log
+    (typically 5MB - 10MB+) that triggers real-world network transmission limits.
+    """
+    from src.loader import get_sample_test_data
+    base_sample = get_sample_test_data(500)
+    base_bytes_len = len(base_sample.to_csv(index=False).encode('utf-8'))
+    
+    target_bytes = int(target_size_mb * 1024 * 1024)
+    multiplier = max(10, int(target_bytes / max(1, base_bytes_len)) + 1)
+    
+    # Generate volumetric replicated dataframe with randomized micro-jitter on timestamps and packets
+    df_volumetric = pd.concat([base_sample] * multiplier, ignore_index=True)
+    
+    # Micro-randomize packet counts and durations to create realistic high-entropy telemetry
+    noise = np.random.uniform(0.98, 1.02, size=len(df_volumetric))
+    if 'dur' in df_volumetric.columns:
+        df_volumetric['dur'] = (df_volumetric['dur'] * noise).round(5)
+    if 'sbytes' in df_volumetric.columns:
+        df_volumetric['sbytes'] = (df_volumetric['sbytes'] * noise).astype(int)
+    if 'dbytes' in df_volumetric.columns:
+        df_volumetric['dbytes'] = (df_volumetric['dbytes'] * noise).astype(int)
+        
+    raw_csv_bytes = df_volumetric.to_csv(index=False).encode('utf-8')
+    return df_volumetric, raw_csv_bytes

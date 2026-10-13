@@ -25,3 +25,14 @@ venv.bak/
 # OS specific
 .DS_Store
 Thumbs.db
+
+# Credentials & Firebase service accounts
+credentials/
+*serviceAccount*.json
+*.key.json
+firebase-debug.log
+
+# Vault DB & Binary Payloads
+data/telemetry_vault.db
+results/vault/
+ui/app_backup.py

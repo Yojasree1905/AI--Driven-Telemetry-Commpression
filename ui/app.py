@@ -1148,7 +1148,20 @@ else:
     # 4. Explainable AI (XAI) Threat Investigation Hub & MITRE
     st.markdown("---")
     st.markdown("### 4. Explainable AI (XAI) Threat Investigation Hub & MITRE ATT&CK")
-    dominant_cat = prob_df.mean().idxmax().replace(' (%)', '') if not prob_df.empty else "Exploits"
+    
+    # Calculate dominant attack threat category correctly:
+    # Exclude 'Normal (%)' column when determining malicious attack attribution
+    if zerodays > attacks and zerodays > 0:
+        dominant_cat = "Zero-Day Anomaly"
+    elif not prob_df.empty:
+        attack_cols = [c for c in prob_df.columns if not c.startswith('Normal')]
+        if attack_cols:
+            dominant_cat = prob_df[attack_cols].mean().idxmax().replace(' (%)', '')
+        else:
+            dominant_cat = "Exploits"
+    else:
+        dominant_cat = "Exploits" if (attacks > 0 or zerodays > 0) else "Normal"
+
     mitre_info = get_mitre_details(dominant_cat)
 
     st.markdown(f"**MITRE ATT&CK Attribution**: `{mitre_info['technique_id']}` — **{mitre_info['technique_name']}** ({mitre_info['tactic']}, Severity: **{mitre_info['severity']}**)")
@@ -1161,6 +1174,12 @@ else:
             try:
                 fig_shap = compute_shap_summary(xgb_model, X_trans[:40], preprocessor)
                 st.pyplot(fig_shap)
+                
+                # Buffer for PDF
+                shap_buf = io.BytesIO()
+                fig_shap.savefig(shap_buf, format='png', bbox_inches='tight', dpi=180, facecolor=fig_shap.get_facecolor())
+                shap_buf.seek(0)
+                chart_img_bytes["shap_plot"] = shap_buf.getvalue()
             except Exception as e:
                 st.info(f"SHAP note: {e}")
     with c_s2:
@@ -1176,13 +1195,26 @@ else:
         plt.tight_layout()
         st.pyplot(fig_bar)
 
+        # Buffer for PDF
+        bar_buf = io.BytesIO()
+        fig_bar.savefig(bar_buf, format='png', bbox_inches='tight', dpi=180, facecolor=fig_bar.get_facecolor())
+        bar_buf.seek(0)
+        chart_img_bytes["feature_importance"] = bar_buf.getvalue()
+
     # 5. Generated Audit Reports (Available for Local Download)
     st.markdown("---")
     st.markdown("### 5. Generate Incident Audit Report Documents")
     st.write("Generate and download the official Cyber Security Incident Audit Report (PDF >2.0 MB) and Security Audit CSV:")
 
-    sample_row = res_df.iloc[0]
-    sample_dict = admin_active_df.iloc[0].to_dict()
+    # Select representative threat row rather than blindly picking row 0
+    threat_rows = res_df[res_df['Status'].isin(['Attack', 'Zero-Day Anomaly'])]
+    if not threat_rows.empty:
+        rep_idx = threat_rows['Risk Score (%)'].idxmax()
+        sample_row = res_df.loc[rep_idx].copy()
+        sample_dict = admin_active_df.loc[rep_idx].to_dict()
+    else:
+        sample_row = res_df.iloc[0].copy()
+        sample_dict = admin_active_df.iloc[0].to_dict()
 
     summary_counts = {
         "total": total_pkts,

@@ -200,21 +200,21 @@ Containment Command:
     batch_metric_data = [
         [
             Paragraph("<b>Total Connection Flows Evaluated</b>", body_style),
-            Paragraph(f"<b>{tot_flows:,} Flows</b>", body_bold),
-            Paragraph("<b>Known Signature Attacks</b>", body_style),
-            Paragraph(f"<font color='#dc2626'><b>{atk_count:,} Detected</b></font>", body_bold)
+            Paragraph(f"<b>{tot_flows:,} Flows (100%)</b>", body_bold),
+            Paragraph("<b>Active Signature Attacks</b>", body_style),
+            Paragraph(f"<font color='#dc2626'><b>{atk_count:,} ({atk_count/max(1, tot_flows)*100:.1f}%)</b></font>", body_bold)
         ],
         [
             Paragraph("<b>Zero-Day Anomalies Isolated</b>", body_style),
-            Paragraph(f"<font color='#d97706'><b>{zd_count:,} Alerts</b></font>", body_bold),
+            Paragraph(f"<font color='#d97706'><b>{zd_count:,} ({zd_count/max(1, tot_flows)*100:.1f}%)</b></font>", body_bold),
             Paragraph("<b>Authorized Normal Baseline</b>", body_style),
-            Paragraph(f"<font color='#059669'><b>{norm_count:,} Cleared</b></font>", body_bold)
+            Paragraph(f"<font color='#059669'><b>{norm_count:,} ({norm_count/max(1, tot_flows)*100:.1f}%)</b></font>", body_bold)
         ],
         [
-            Paragraph("<b>Dominant Attack Category</b>", body_style),
-            Paragraph(f"<b>{dominant_cat}</b>", body_bold),
-            Paragraph("<b>Primary MITRE Technique</b>", body_style),
-            Paragraph(f"<b>{mitre_info.get('technique_id', 'N/A')}</b> ({mitre_info.get('technique_name', 'N/A')})", body_style)
+            Paragraph("<b>Dominant Threat Attribution</b>", body_style),
+            Paragraph(f"<font color='#dc2626'><b>{dominant_cat}</b></font>", body_bold),
+            Paragraph("<b>Threat Severity Rating</b>", body_style),
+            Paragraph(f"<font color='{mitre_info.get('color', '#dc2626')}'><b>{mitre_info.get('severity', 'High')}</b></font>", body_bold)
         ]
     ]
     batch_table = Table(batch_metric_data, colWidths=[2.2 * inch, 1.5 * inch, 2.2 * inch, 1.5 * inch])
@@ -225,6 +225,50 @@ Containment Command:
         ('PADDING', (0, 0), (-1, -1), 5),
     ]))
     story.append(batch_table)
+    story.append(Spacer(1, 8))
+
+    # Multi-Model Detection Breakdown Matrix for the Entire Document
+    story.append(Paragraph("<b>Document-Wide Multi-Model Detection Breakdown</b>", body_bold))
+    multi_model_doc_data = [
+        [
+            Paragraph("<b>Model Detector</b>", ParagraphStyle('THM1', parent=body_style, textColor=colors.white)),
+            Paragraph("<b>Primary Architecture Role</b>", ParagraphStyle('THM2', parent=body_style, textColor=colors.white)),
+            Paragraph("<b>Document Detection Status</b>", ParagraphStyle('THM3', parent=body_style, textColor=colors.white)),
+            Paragraph("<b>Detections in Document</b>", ParagraphStyle('THM4', parent=body_style, textColor=colors.white))
+        ],
+        [
+            Paragraph("<b>Isolation Forest</b>", body_bold),
+            Paragraph("Unsupervised Outlier & Zero-Day Isolation", body_style),
+            Paragraph("<font color='#d97706'><b>Active (Anomalies Isolated)</b></font>" if zd_count > 0 else "<font color='#059669'>Normal Baseline</font>", body_bold),
+            Paragraph(f"<b>{zd_count:,} Outliers</b> ({zd_count/max(1, tot_flows)*100:.1f}%)", body_style)
+        ],
+        [
+            Paragraph("<b>Random Forest</b>", body_bold),
+            Paragraph("Supervised Multi-Decision Threat Classifier", body_style),
+            Paragraph("<font color='#dc2626'><b>Attack Signatures Identified</b></font>" if atk_count > 0 else "<font color='#059669'>Normal Baseline</font>", body_bold),
+            Paragraph(f"<b>{atk_count:,} Attacks</b> ({atk_count/max(1, tot_flows)*100:.1f}%)", body_style)
+        ],
+        [
+            Paragraph("<b>XGBoost Classifier</b>", body_bold),
+            Paragraph("Gradient Boosted Precision Classifier", body_style),
+            Paragraph("<font color='#dc2626'><b>High-Confidence Attack Match</b></font>" if atk_count > 0 else "<font color='#059669'>Normal Baseline</font>", body_bold),
+            Paragraph(f"<b>{atk_count:,} Attacks</b> ({atk_count/max(1, tot_flows)*100:.1f}%)", body_style)
+        ],
+        [
+            Paragraph("<b>Hybrid System Ensemble</b>", body_bold),
+            Paragraph("Composite Signature + Anomaly Fusion", body_style),
+            Paragraph(f"<font color='{verdict_color}'><b>{row.get('Hybrid Verdict', 'Attack' if (atk_count+zd_count)>norm_count else 'Normal')}</b></font>", body_bold),
+            Paragraph(f"<b>{atk_count + zd_count:,} Total Threats</b> ({(atk_count+zd_count)/max(1, tot_flows)*100:.1f}%)", body_bold)
+        ]
+    ]
+    mm_doc_table = Table(multi_model_doc_data, colWidths=[1.8 * inch, 2.3 * inch, 1.8 * inch, 1.5 * inch])
+    mm_doc_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), TABLE_HEADER_BG),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('PADDING', (0, 0), (-1, -1), 4),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, ALT_ROW_BG]),
+    ]))
+    story.append(mm_doc_table)
     story.append(Spacer(1, 8))
 
     # 3. Document Performance Evaluation Matrix & Dynamic Model Utility
@@ -282,16 +326,16 @@ Containment Command:
         story.append(eval_tab)
         story.append(Spacer(1, 8))
 
-    # 4. Embedded Visual Diagnostic Charts (Threat Breakdown, Softmax Bar, Confusion Matrix)
+    # 4. Embedded Visual Diagnostic Charts (Threat Breakdown, Softmax Bar, Confusion Matrix, XAI)
     if chart_images:
-        story.append(Paragraph("3. Visual Predictive Threat Analytics & Confusion Matrix", h2_style))
+        story.append(Paragraph("3. Visual Predictive Threat Analytics & Performance Charts", h2_style))
         story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#cbd5e1'), spaceBefore=2, spaceAfter=4))
         
         c_imgs = []
         if "pie_chart" in chart_images:
-            c_imgs.append(Image(io.BytesIO(chart_images["pie_chart"]), width=3.5 * inch, height=2.6 * inch))
+            c_imgs.append(Image(io.BytesIO(chart_images["pie_chart"]), width=3.5 * inch, height=2.5 * inch))
         if "confusion_matrix" in chart_images:
-            c_imgs.append(Image(io.BytesIO(chart_images["confusion_matrix"]), width=3.5 * inch, height=2.6 * inch))
+            c_imgs.append(Image(io.BytesIO(chart_images["confusion_matrix"]), width=3.5 * inch, height=2.5 * inch))
             
         if len(c_imgs) == 2:
             img_tab = Table([[c_imgs[0], c_imgs[1]]], colWidths=[3.7 * inch, 3.7 * inch])
@@ -307,12 +351,33 @@ Containment Command:
             story.append(Spacer(1, 6))
 
         if "probability_bar" in chart_images:
-            bar_img = Image(io.BytesIO(chart_images["probability_bar"]), width=7.2 * inch, height=2.2 * inch)
+            bar_img = Image(io.BytesIO(chart_images["probability_bar"]), width=7.2 * inch, height=2.0 * inch)
             story.append(bar_img)
-            story.append(Spacer(1, 8))
+            story.append(Spacer(1, 6))
+
+        # Explainable AI (XAI) SHAP and Feature Importance Plots in PDF
+        xai_imgs = []
+        if "shap_plot" in chart_images:
+            xai_imgs.append(Image(io.BytesIO(chart_images["shap_plot"]), width=3.5 * inch, height=2.5 * inch))
+        if "feature_importance" in chart_images:
+            xai_imgs.append(Image(io.BytesIO(chart_images["feature_importance"]), width=3.5 * inch, height=2.5 * inch))
+
+        if len(xai_imgs) == 2:
+            story.append(Paragraph("<b>Explainable AI (XAI) SHAP & Global Feature Importance Diagnostic Plots</b>", body_bold))
+            xai_tab = Table([[xai_imgs[0], xai_imgs[1]]], colWidths=[3.7 * inch, 3.7 * inch])
+            xai_tab.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('PADDING', (0, 0), (-1, -1), 2),
+            ]))
+            story.append(xai_tab)
+            story.append(Spacer(1, 6))
+        elif len(xai_imgs) == 1:
+            story.append(xai_imgs[0])
+            story.append(Spacer(1, 6))
 
     # 5. MITRE ATT&CK Threat Intelligence Profile
-    story.append(Paragraph("4. MITRE ATT&CK Framework Threat Intelligence & Containment", h2_style))
+    story.append(Paragraph("4. Explainable AI (XAI) Threat Investigation Hub & MITRE ATT&CK Framework", h2_style))
     story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#cbd5e1'), spaceBefore=2, spaceAfter=4))
 
     mitre_table_data = [
@@ -320,7 +385,7 @@ Containment Command:
         [Paragraph("Technique Name", body_style), Paragraph(f"<b>{mitre_info.get('technique_name', 'N/A')}</b>", body_style)],
         [Paragraph("Technique ID & Sub-type", body_style), Paragraph(f"{mitre_info.get('technique_id', 'N/A')} ({mitre_info.get('sub_technique', 'N/A')})", body_style)],
         [Paragraph("Tactical Phase", body_style), Paragraph(f"{mitre_info.get('tactic', 'N/A')}", body_style)],
-        [Paragraph("Threat Severity Level", body_style), Paragraph(f"<font color='{mitre_info.get('color', '#000000')}'><b>{mitre_info.get('severity', 'N/A')}</b></font>", body_style)],
+        [Paragraph("Threat Severity Level", body_style), Paragraph(f"<font color='{mitre_info.get('color', '#000000')}'><b>{mitre_info.get('severity', 'N/A')}</b></font>", body_bold)],
         [Paragraph("Threat Description", body_style), Paragraph(f"{mitre_info.get('description', 'N/A')}", body_style)],
     ]
     mitre_table = Table(mitre_table_data, colWidths=[2.2 * inch, 5.2 * inch])

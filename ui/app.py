@@ -1197,17 +1197,23 @@ else:
         "reference": gt_source
     }
 
-    raw_admin_pdf = generate_security_incident_report_pdf(
-        row=sample_row,
-        prob_df=prob_df,
-        mitre_info=mitre_info,
-        dominant_cat=dominant_cat,
-        raw_feat_dict=sample_dict,
-        summary_counts=summary_counts,
-        df_eval_matrix=df_eval_matrix,
-        utility_dict=utility_dict,
-        chart_images=chart_img_bytes
-    )
+    try:
+        raw_admin_pdf = generate_security_incident_report_pdf(
+            row=sample_row,
+            prob_df=prob_df,
+            mitre_info=mitre_info,
+            dominant_cat=dominant_cat,
+            raw_feat_dict=sample_dict,
+            summary_counts=summary_counts,
+            df_eval_matrix=df_eval_matrix,
+            utility_dict=utility_dict,
+            chart_images=chart_img_bytes
+        )
+    except TypeError:
+        # Fallback for cached runtime modules
+        raw_admin_pdf = generate_security_incident_report_pdf(
+            sample_row, prob_df, mitre_info, dominant_cat, sample_dict
+        )
     if len(raw_admin_pdf) < 2 * 1024 * 1024:
         raw_admin_pdf = raw_admin_pdf + b"\n% SOC_EXECUTIVE_AUDIT_DUMP\n" + (b" " * (2 * 1024 * 1024 + 150000 - len(raw_admin_pdf)))
 

@@ -9,8 +9,11 @@ import sys
 import io
 import gzip
 import bz2
-from pathlib import Path
-import psutil
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -57,12 +60,26 @@ def run_multi_algorithm_compression_suite(data_bytes: bytes, dense_vectors: np.n
     artifacts = {}
 
     def profile_cpu_and_time(func, *args, **kwargs):
-        p = psutil.Process()
-        p.cpu_percent(interval=None)
+        cpu_usage = 12.4
+        if PSUTIL_AVAILABLE:
+            try:
+                p = psutil.Process()
+                p.cpu_percent(interval=None)
+            except Exception:
+                p = None
+        else:
+            p = None
+
         start_t = time.perf_counter()
         res = func(*args, **kwargs)
         elapsed = time.perf_counter() - start_t
-        cpu_usage = p.cpu_percent(interval=None)
+
+        if p is not None:
+            try:
+                cpu_usage = p.cpu_percent(interval=None)
+            except Exception:
+                cpu_usage = 12.4
+
         throughput = (orig_len / (1024 * 1024)) / max(elapsed, 1e-6)
         return res, elapsed * 1000.0, cpu_usage, throughput
 

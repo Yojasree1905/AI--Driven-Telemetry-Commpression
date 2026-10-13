@@ -900,7 +900,7 @@ else:
                 elif "Bzip2" in algo:
                     dec_bytes = bz2.decompress(comp_b)
                 else:
-                    dec_bytes = comp_blob
+                    dec_bytes = comp_b
                 admin_active_df = pd.read_csv(io.BytesIO(dec_bytes))
         except Exception as e:
             st.warning(f"Note loading transmission blob: {e}. Falling back to benchmark telemetry.")
@@ -1207,6 +1207,9 @@ else:
         bar_buf.seek(0)
         chart_img_bytes["feature_importance"] = bar_buf.getvalue()
 
+    # Store charts in session state so they persist across Streamlit button interactions
+    st.session_state["cached_diagnostic_charts"] = chart_img_bytes
+
     # 5. Generated Audit Reports (Available for Local Download)
     st.markdown("---")
     st.markdown("### 5. Generate Incident Audit Report Documents")
@@ -1235,6 +1238,9 @@ else:
         "reference": gt_source
     }
 
+    # Ensure all available charts from current run or session state are passed
+    active_charts = st.session_state.get("cached_diagnostic_charts", chart_img_bytes)
+
     try:
         raw_admin_pdf = generate_security_incident_report_pdf(
             row=sample_row,
@@ -1245,15 +1251,20 @@ else:
             summary_counts=summary_counts,
             df_eval_matrix=df_eval_matrix,
             utility_dict=utility_dict,
-            chart_images=chart_img_bytes
+            chart_images=active_charts,
+            pad_to_target_bytes=int(2.15 * 1024 * 1024)
         )
-    except TypeError:
-        # Fallback for cached runtime modules
+    except Exception as e:
+        st.error(f"Error compiling Executive Audit Report PDF with charts: {e}")
+        # Secondary attempt ensuring charts are present
         raw_admin_pdf = generate_security_incident_report_pdf(
-            sample_row, prob_df, mitre_info, dominant_cat, sample_dict
+            sample_row, prob_df, mitre_info, dominant_cat, sample_dict,
+            summary_counts=summary_counts,
+            df_eval_matrix=df_eval_matrix,
+            utility_dict=utility_dict,
+            chart_images=active_charts,
+            pad_to_target_bytes=int(2.15 * 1024 * 1024)
         )
-    if len(raw_admin_pdf) < 2 * 1024 * 1024:
-        raw_admin_pdf = raw_admin_pdf + b"\n% SOC_EXECUTIVE_AUDIT_DUMP\n" + (b" " * (2 * 1024 * 1024 + 150000 - len(raw_admin_pdf)))
 
     pdf_size_mb = len(raw_admin_pdf) / (1024 * 1024)
 

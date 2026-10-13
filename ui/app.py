@@ -907,68 +907,73 @@ else:
     st.success(f"Telemetry Ingested: **{len(admin_active_df):,} flows** from User **@{admin_sender_user}**.")
 
     # -------------------------------------------------------------------------
-    # BATCH ANALYSIS & ZERO-DAY THREAT CLASSIFICATION
     # -------------------------------------------------------------------------
-    eval_sample = admin_active_df.head(1000).copy()
-    with st.spinner("Executing hybrid multi-model classification (Isolation Forest + Random Forest + XGBoost)..."):
-        res_df, X_trans = hybrid_predict_records(xgb_model, rf_model, iso_model, preprocessor, eval_sample)
-        prob_df = get_attack_category_probabilities(eval_sample)
+    # BATCH ANALYSIS & ZERO-DAY THREAT CLASSIFICATION (100% OF TRANSMITTED DATA)
+    # -------------------------------------------------------------------------
+    with st.spinner(f"Executing hybrid multi-model classification across all {len(admin_active_df):,} flows (Isolation Forest + Random Forest + XGBoost)..."):
+        res_df, X_trans = hybrid_predict_records(xgb_model, rf_model, iso_model, preprocessor, admin_active_df)
+        prob_df = get_attack_category_probabilities(admin_active_df)
 
     total_pkts = len(res_df)
-    attacks = len(res_df[res_df['Status'] == 'Attack'])
-    zerodays = len(res_df[res_df['Status'] == 'Zero-Day Anomaly'])
-    normals = len(res_df[res_df['Status'] == 'Normal'])
+    attacks = int((res_df['Status'] == 'Attack').sum())
+    zerodays = int((res_df['Status'] == 'Zero-Day Anomaly').sum())
+    normals = int((res_df['Status'] == 'Normal').sum())
 
     st.markdown("### 2. Batch Network Log Analyzer & Security Audit")
+    st.write(f"Comprehensive multi-model audit and classification conducted across **100% of telemetry records ({total_pkts:,} connection flows)**.")
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-card-title">Live Packets Streamed</div>
             <div class="metric-card-value">{total_pkts:,}</div>
-            <div style="font-size:11px; color:#94a3b8;">from {len(admin_active_df):,} total flows</div>
+            <div style="font-size:11px; color:#38bdf8;">100% of Document Ingested</div>
         </div>
         """, unsafe_allow_html=True)
     with c2:
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-card-title">Active Threats Detected</div>
-            <div class="metric-card-value" style="color:#f87171;">{attacks}</div>
-            <div style="font-size:11px; color:#94a3b8;">Known Signature Matches</div>
+            <div class="metric-card-value" style="color:#f87171;">{attacks:,}</div>
+            <div style="font-size:11px; color:#94a3b8;">Known Signature Matches ({attacks/max(1, total_pkts)*100:.1f}%)</div>
         </div>
         """, unsafe_allow_html=True)
     with c3:
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-card-title">Zero-Day Alerts</div>
-            <div class="metric-card-value" style="color:#fbbf24;">{zerodays}</div>
-            <div style="font-size:11px; color:#94a3b8;">Unsupervised Structural Outliers</div>
+            <div class="metric-card-value" style="color:#fbbf24;">{zerodays:,}</div>
+            <div style="font-size:11px; color:#94a3b8;">Unsupervised Structural Outliers ({zerodays/max(1, total_pkts)*100:.1f}%)</div>
         </div>
         """, unsafe_allow_html=True)
     with c4:
         st.markdown(f"""
         <div class="metric-card">
             <div class="metric-card-title">Authorized Traffic</div>
-            <div class="metric-card-value" style="color:#34d399;">{normals}</div>
-            <div style="font-size:11px; color:#94a3b8;">Normal Baseline Cleared</div>
+            <div class="metric-card-value" style="color:#34d399;">{normals:,}</div>
+            <div style="font-size:11px; color:#94a3b8;">Normal Baseline Cleared ({normals/max(1, total_pkts)*100:.1f}%)</div>
         </div>
         """, unsafe_allow_html=True)
 
     # Live Streaming Packet Classification Table & Threat Breakdown
     c_left, c_right = st.columns([1.8, 1])
     with c_left:
-        st.markdown("#### Live Streaming Packet Classification Table")
+        st.markdown(f"#### Live Streaming Packet Classification Table (Showing Top 1,000 of {total_pkts:,} Flows)")
         display_cols = ['proto', 'service', 'state', 'dur', 'rate', 'sttl', 'Hybrid Verdict', 'Risk Score (%)']
-        combined_display = pd.concat([eval_sample.reset_index(drop=True), res_df.reset_index(drop=True)], axis=1)
+        top_preview_df = admin_active_df.head(1000).reset_index(drop=True)
+        top_res_df = res_df.head(1000).reset_index(drop=True)
+        combined_display = pd.concat([top_preview_df, top_res_df], axis=1)
         valid_disp_cols = [c for c in display_cols if c in combined_display.columns]
         st.dataframe(combined_display[valid_disp_cols], use_container_width=True)
+
+    chart_img_bytes = {}
 
     with c_right:
         st.markdown("#### Live Threat Breakdown Distribution")
         counts = res_df['Status'].value_counts()
         fig_pie, ax_pie = plt.subplots(figsize=(5, 4.2))
-        colors = {'Normal': '#10b981', 'Attack': '#ef4444', 'Zero-Day Anomaly': '#f59e0b'}
-        pie_colors = [colors.get(k, '#3b82f6') for k in counts.index]
+        colors_map = {'Normal': '#10b981', 'Attack': '#ef4444', 'Zero-Day Anomaly': '#f59e0b'}
+        pie_colors = [colors_map.get(k, '#3b82f6') for k in counts.index]
         ax_pie.pie(counts.values, labels=counts.index, autopct='%1.1f%%', colors=pie_colors, startangle=140)
         ax_pie.axis('equal')
         fig_pie.patch.set_facecolor('#111827')
@@ -976,6 +981,12 @@ else:
         for text in ax_pie.texts:
             text.set_color('#ffffff')
         st.pyplot(fig_pie)
+
+        # Buffer for PDF
+        pie_buf = io.BytesIO()
+        fig_pie.savefig(pie_buf, format='png', bbox_inches='tight', dpi=180, facecolor=fig_pie.get_facecolor())
+        pie_buf.seek(0)
+        chart_img_bytes["pie_chart"] = pie_buf.getvalue()
 
     # Multi-Class Attack Probability Breakdown (%)
     if not prob_df.empty:
@@ -994,6 +1005,12 @@ else:
         plt.tight_layout()
         st.pyplot(fig_live_bar)
 
+        # Buffer for PDF
+        prob_buf = io.BytesIO()
+        fig_live_bar.savefig(prob_buf, format='png', bbox_inches='tight', dpi=180, facecolor=fig_live_bar.get_facecolor())
+        prob_buf.seek(0)
+        chart_img_bytes["probability_bar"] = prob_buf.getvalue()
+
     # Document Performance Evaluation Matrix & Model Utility Analysis
     st.markdown("---")
     st.markdown("### 3. Document Performance Evaluation Matrix & Model Utility Analysis")
@@ -1004,8 +1021,8 @@ else:
     pred_iso = (res_df['Isolation Forest'] == 'Anomaly').astype(int).values
     pred_hybrid = (res_df['Status'].isin(['Attack', 'Zero-Day Anomaly'])).astype(int).values
 
-    if 'label' in eval_sample.columns:
-        y_true = eval_sample['label'].astype(int).values
+    if 'label' in admin_active_df.columns:
+        y_true = admin_active_df['label'].astype(int).values
         gt_source = "Empirical Ground Truth Labels (`label` column)"
     else:
         y_true = pred_hybrid
@@ -1051,7 +1068,7 @@ else:
         utility_badge = "Zero-Day Specialist"
         utility_explanation = (
             f"Isolation Forest was the most critical and useful model for this document. "
-            f"It successfully isolated {zeroday_count} Suspicious Zero-Day Anomalies ({zeroday_count / total_recs * 100:.1f}% of all connection flows) "
+            f"It successfully isolated {zeroday_count:,} Suspicious Zero-Day Anomalies ({zeroday_count / total_recs * 100:.1f}% of all connection flows) "
             f"that lacked known attack signatures and would have completely bypassed supervised models."
         )
     elif hybrid_f1 >= max(xgb_f1, rf_f1, iso_f1):
@@ -1089,7 +1106,7 @@ else:
         fig_cm, ax_cm = plt.subplots(figsize=(4.5, 3.8))
         sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax_cm,
                     xticklabels=['Normal', 'Threat'], yticklabels=['Normal', 'Threat'])
-        plt.title("Uploaded Log Confusion Matrix", fontsize=11, fontweight='bold', color='#ffffff')
+        plt.title(f"Confusion Matrix ({total_recs:,} Flows)", fontsize=11, fontweight='bold', color='#ffffff')
         fig_cm.patch.set_facecolor('#111827')
         ax_cm.set_facecolor('#111827')
         ax_cm.tick_params(colors='#ffffff')
@@ -1097,6 +1114,12 @@ else:
         ax_cm.yaxis.label.set_color('#ffffff')
         plt.tight_layout()
         st.pyplot(fig_cm)
+
+        # Buffer for PDF
+        cm_buf = io.BytesIO()
+        fig_cm.savefig(cm_buf, format='png', bbox_inches='tight', dpi=180, facecolor=fig_cm.get_facecolor())
+        cm_buf.seek(0)
+        chart_img_bytes["confusion_matrix"] = cm_buf.getvalue()
 
     with col_cm2:
         st.markdown("#### 📊 Metric Comparison for Uploaded Document")
@@ -1152,17 +1175,38 @@ else:
     st.write("Generate and download the official Cyber Security Incident Audit Report (PDF >2.0 MB) and Security Audit CSV:")
 
     sample_row = res_df.iloc[0]
-    sample_dict = eval_sample.iloc[0].to_dict()
+    sample_dict = admin_active_df.iloc[0].to_dict()
+
+    summary_counts = {
+        "total": total_pkts,
+        "attacks": attacks,
+        "zerodays": zerodays,
+        "normals": normals
+    }
+    utility_dict = {
+        "most_useful_model": most_useful_model,
+        "utility_badge": utility_badge,
+        "utility_explanation": utility_explanation,
+        "reference": gt_source
+    }
 
     raw_admin_pdf = generate_security_incident_report_pdf(
-        sample_row, prob_df, mitre_info, dominant_cat, sample_dict
+        row=sample_row,
+        prob_df=prob_df,
+        mitre_info=mitre_info,
+        dominant_cat=dominant_cat,
+        raw_feat_dict=sample_dict,
+        summary_counts=summary_counts,
+        df_eval_matrix=df_eval_matrix,
+        utility_dict=utility_dict,
+        chart_images=chart_img_bytes
     )
     if len(raw_admin_pdf) < 2 * 1024 * 1024:
         raw_admin_pdf = raw_admin_pdf + b"\n% SOC_EXECUTIVE_AUDIT_DUMP\n" + (b" " * (2 * 1024 * 1024 + 150000 - len(raw_admin_pdf)))
 
     pdf_size_mb = len(raw_admin_pdf) / (1024 * 1024)
 
-    audit_csv_bytes = eval_sample.to_csv(index=False).encode('utf-8')
+    audit_csv_bytes = admin_active_df.to_csv(index=False).encode('utf-8')
 
     col_dl1, col_dl2 = st.columns(2)
     with col_dl1:

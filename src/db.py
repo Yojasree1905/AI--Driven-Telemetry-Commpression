@@ -14,10 +14,18 @@ import hashlib
 import os
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+# IST Timezone (+05:30)
+IST = timezone(timedelta(hours=5, minutes=30))
+
+def get_ist_now_str() -> str:
+    """Returns formatted timestamp in IST (Indian Standard Time)."""
+    return datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
 
 # Local Vault Storage
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT.mkdir(parents=True, exist_ok=True)
 DB_PATH = PROJECT_ROOT / "data" / "telemetry_vault.db"
 VAULT_STORAGE = PROJECT_ROOT / "results" / "vault"
 CREDENTIALS_PATH = PROJECT_ROOT / "credentials" / "serviceAccountKey.json"
@@ -155,7 +163,7 @@ def register_or_login_user(name: str, email: str, role: str = "User") -> Dict[st
     if not username:
         username = name.lower().replace(' ', '_')
 
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = get_ist_now_str()
 
     with get_db_connection() as conn:
         row = conn.execute("SELECT * FROM users WHERE username = ? OR email = ?", (username, email)).fetchone()
@@ -220,7 +228,7 @@ def send_connection_request(sender_username: str, target_username: str) -> str:
     """Sends a connection request to another user."""
     init_db()
     conn_id = f"CONN_{min(sender_username, target_username)}_{max(sender_username, target_username)}"
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = get_ist_now_str()
     with get_db_connection() as conn:
         # Check if exists
         row = conn.execute("SELECT * FROM peer_connections WHERE connection_id = ?", (conn_id,)).fetchone()
@@ -241,7 +249,7 @@ def accept_connection_request(sender_username: str, target_username: str):
     """Accepts an incoming peer connection request."""
     init_db()
     conn_id = f"CONN_{min(sender_username, target_username)}_{max(sender_username, target_username)}"
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = get_ist_now_str()
     with get_db_connection() as conn:
         conn.execute("UPDATE peer_connections SET status = 'ACCEPTED', updated_at = ? WHERE connection_id = ?", (now_str, conn_id))
         conn.commit()
@@ -250,7 +258,7 @@ def reject_connection_request(sender_username: str, target_username: str):
     """Rejects an incoming peer connection request."""
     init_db()
     conn_id = f"CONN_{min(sender_username, target_username)}_{max(sender_username, target_username)}"
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = get_ist_now_str()
     with get_db_connection() as conn:
         conn.execute("UPDATE peer_connections SET status = 'REJECTED', updated_at = ? WHERE connection_id = ?", (now_str, conn_id))
         conn.commit()
@@ -320,7 +328,7 @@ def dispatch_transmission_package(
         pdf_raw_len = len(pdf_raw_bytes)
         pdf_comp_len = len(pdf_comp_bytes)
 
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = get_ist_now_str()
 
     trans_record = {
         "transmission_id": transmission_id,
@@ -435,7 +443,7 @@ def record_audit_receipt(
     decomp_sha = compute_sha256(decompressed_bytes)
     is_exact = (decomp_sha == trans["sha256_original"])
     data_loss_pct = 0.0 if is_exact else (min(100.0, max(0.01, mse * 100.0)))
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = get_ist_now_str()
 
     receipt = {
         "receipt_id": receipt_id,

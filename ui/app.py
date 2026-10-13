@@ -526,192 +526,192 @@ if not is_admin:
             horizontal=True
         )
 
-    active_u_df = None
-    active_u_bytes = None
-    active_u_filename = "telemetry.csv"
-
-    if "Upload" in u_source_choice:
-        u_up_file = st.file_uploader("Upload CSV Telemetry File:", type=["csv"], key="u_up_file_single")
-        if u_up_file is not None:
-            active_u_bytes = u_up_file.getvalue()
-            active_u_filename = u_up_file.name
-            active_u_df = pd.read_csv(io.BytesIO(active_u_bytes))
-            st.session_state["user_active_df"] = active_u_df
-            st.session_state["user_active_bytes"] = active_u_bytes
-            st.session_state["user_active_filename"] = active_u_filename
-    else:
-        u_c1, u_c2 = st.columns([2, 1])
-        with u_c1:
-            u_target_size = st.slider("Target CSV Size (MB):", 5.0, 12.0, 5.2, 0.2)
-        with u_c2:
-            st.markdown("<br>", unsafe_allow_html=True)
-            u_gen_now = st.button("🚀 Generate Fresh Telemetry (>5MB)", type="primary", use_container_width=True)
-
-        if u_gen_now or "user_active_df" not in st.session_state:
-            with st.spinner(f"Dynamically generating {u_target_size:.1f} MB volumetric network telemetry stream..."):
-                u_df, u_csv_bytes = generate_volumetric_telemetry_csv(target_size_mb=u_target_size)
-                st.session_state["user_active_df"] = u_df
-                st.session_state["user_active_bytes"] = u_csv_bytes
-                st.session_state["user_active_filename"] = f"user_telemetry_{int(time.time())}_{len(u_df)}_flows.csv"
-
-    if "user_active_df" in st.session_state:
-        active_u_df = st.session_state["user_active_df"]
-        active_u_bytes = st.session_state["user_active_bytes"]
-        active_u_filename = st.session_state["user_active_filename"]
-
-    if active_u_bytes is not None:
-        u_size_mb = len(active_u_bytes) / (1024 * 1024)
-        if u_size_mb > 2.0:
-            st.markdown(f"""
-            <div class="warning-box">
-                <b>⚠️ VOLUMETRIC TELEMETRY READY FOR DISPATCH:</b><br>
-                • File Name: <code>{active_u_filename}</code><br>
-                • Raw Dataset Size: <b>{u_size_mb:.2f} MB</b> ({len(active_u_bytes):,} Bytes, <b>{len(active_u_df):,} connection flows</b>)<br>
-                • Channel Constraint: <b>2.00 MB Maximum</b> ➔ <span style="color:#f87171; font-weight:700;">TRANSMISSION BLOCKED WITHOUT COMPRESSION</span><br>
-                <i>Compress this telemetry below with the multi-algorithm suite and transmit to Admin!</i>
-            </div>
-            """, unsafe_allow_html=True)
+        active_u_df = None
+        active_u_bytes = None
+        active_u_filename = "telemetry.csv"
+    
+        if "Upload" in u_source_choice:
+            u_up_file = st.file_uploader("Upload CSV Telemetry File:", type=["csv"], key="u_up_file_single")
+            if u_up_file is not None:
+                active_u_bytes = u_up_file.getvalue()
+                active_u_filename = u_up_file.name
+                active_u_df = pd.read_csv(io.BytesIO(active_u_bytes))
+                st.session_state["user_active_df"] = active_u_df
+                st.session_state["user_active_bytes"] = active_u_bytes
+                st.session_state["user_active_filename"] = active_u_filename
         else:
-            st.info(f"Loaded dataset: {active_u_filename} ({u_size_mb:.2f} MB, {len(active_u_df):,} records).")
-
-        col_pk1, col_pk2, col_pk3, col_pk4 = st.columns(4)
-        with col_pk1:
-            st.metric("Total Network Flows", f"{len(active_u_df):,}")
-        with col_pk2:
-            st.metric("Raw CSV Size", f"{u_size_mb:.2f} MB")
-        with col_pk3:
-            st.metric("Channel Limit", "2.00 MB", delta=f"{u_size_mb - 2.0:.2f} MB excess", delta_color="inverse")
-        with col_pk4:
-            st.metric("Feature Dimensions", "42 Columns", delta="UNSW-NB15")
-
-        # 2. Multi-Algorithm Compression & Dispatch to Admin
-        st.markdown("---")
-        st.markdown("### 2. Algorithmic Compression Comparison & Transmission to Admin")
-        st.write("Compressing payload across all algorithms with real-time CPU profiling, highlighting the **Top 3 useful techniques**:")
-
-        with st.spinner("Executing compression suite across telemetry payload..."):
-            u_comp_df, u_artifacts = run_multi_algorithm_compression_suite(
-                data_bytes=active_u_bytes,
-                raw_df=active_u_df
-            )
-
-        u_sorted_df = u_comp_df.sort_values(by="Decrease (%)", ascending=False).reset_index(drop=True)
-
-        st.dataframe(
-            u_sorted_df[[
-                "Algorithm", "Type", "Original Size", "Compressed Size", "Decrease (%)",
-                "Comp Ratio", "Throughput", "Latency (ms)", "Quality / PSNR", "CPU Usage (%)"
-            ]].style.format({
-                "Decrease (%)": "{:.2f}%",
-                "Latency (ms)": "{:.2f} ms"
-            }),
-            use_container_width=True
-        )
-
-        st.markdown("#### 🏆 Top 3 Useful Techniques for this Telemetry")
-        top_3_u_rows = [u_sorted_df.iloc[i] for i in range(min(3, len(u_sorted_df)))]
-        top_u_cols = st.columns(3)
-        top_badges = ["🥇 1st Place", "🥈 2nd Place", "🥉 3rd Place"]
-        border_c = ["#eab308", "#94a3b8", "#b45309"]
-        top_3_u_meta = []
-
-        for idx, t_row in enumerate(top_3_u_rows):
-            slug = t_row["Algorithm"].lower().replace(' ', '_').replace('/', '_')
-            raw_c = t_row["raw_comp"]
-            top_3_u_meta.append({
-                "place": idx + 1,
-                "algorithm": t_row["Algorithm"],
-                "decrease_pct": float(t_row["Decrease (%)"]),
-                "ratio": str(t_row["Comp Ratio"]),
-                "psnr": str(t_row["Quality / PSNR"]),
-                "cpu": str(t_row["CPU Usage (%)"]),
-                "throughput": str(t_row["Throughput"]),
-                "compressed_size": str(t_row["Compressed Size"])
-            })
-
-            with top_u_cols[idx]:
+            u_c1, u_c2 = st.columns([2, 1])
+            with u_c1:
+                u_target_size = st.slider("Target CSV Size (MB):", 5.0, 12.0, 5.2, 0.2)
+            with u_c2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                u_gen_now = st.button("🚀 Generate Fresh Telemetry (>5MB)", type="primary", use_container_width=True)
+    
+            if u_gen_now or "user_active_df" not in st.session_state:
+                with st.spinner(f"Dynamically generating {u_target_size:.1f} MB volumetric network telemetry stream..."):
+                    u_df, u_csv_bytes = generate_volumetric_telemetry_csv(target_size_mb=u_target_size)
+                    st.session_state["user_active_df"] = u_df
+                    st.session_state["user_active_bytes"] = u_csv_bytes
+                    st.session_state["user_active_filename"] = f"user_telemetry_{int(time.time())}_{len(u_df)}_flows.csv"
+    
+        if "user_active_df" in st.session_state:
+            active_u_df = st.session_state["user_active_df"]
+            active_u_bytes = st.session_state["user_active_bytes"]
+            active_u_filename = st.session_state["user_active_filename"]
+    
+        if active_u_bytes is not None:
+            u_size_mb = len(active_u_bytes) / (1024 * 1024)
+            if u_size_mb > 2.0:
                 st.markdown(f"""
-                <div class="metric-card" style="border: 1px solid {border_c[idx]}; text-align: left; padding: 14px; margin-bottom: 10px;">
-                    <div style="font-size: 11px; font-weight: 700; color: {border_c[idx]};">{top_badges[idx]}</div>
-                    <div style="font-size: 15px; font-weight: 700; color: #f8fafc; margin-top: 2px;">{t_row['Algorithm']}</div>
-                    <div style="font-size: 22px; font-weight: 700; color: #34d399; margin-top: 4px;">{t_row['Decrease (%)']:.2f}% <span style="font-size: 12px; color: #94a3b8; font-weight: 400;">decrease</span></div>
-                    <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">Ratio: <b>{t_row['Comp Ratio']}</b> &bull; CPU: <b>{t_row['CPU Usage (%)']}</b></div>
+                <div class="warning-box">
+                    <b>⚠️ VOLUMETRIC TELEMETRY READY FOR DISPATCH:</b><br>
+                    • File Name: <code>{active_u_filename}</code><br>
+                    • Raw Dataset Size: <b>{u_size_mb:.2f} MB</b> ({len(active_u_bytes):,} Bytes, <b>{len(active_u_df):,} connection flows</b>)<br>
+                    • Channel Constraint: <b>2.00 MB Maximum</b> ➔ <span style="color:#f87171; font-weight:700;">TRANSMISSION BLOCKED WITHOUT COMPRESSION</span><br>
+                    <i>Compress this telemetry below with the multi-algorithm suite and transmit to Admin!</i>
                 </div>
                 """, unsafe_allow_html=True)
-
-                c_bytes = raw_c if isinstance(raw_c, (bytes, bytearray)) else bytes(raw_c)
-                st.download_button(
-                    f"💾 Download Compressed (.bin)",
-                    data=c_bytes,
-                    file_name=f"{slug}_telemetry.bin",
-                    mime="application/octet-stream",
-                    key=f"u_dl_top_{idx}",
-                    type="primary" if idx == 0 else "secondary",
-                    use_container_width=True
-                )
-
-        st.markdown("#### 3. Transmit Compressed Telemetry Package to Admin")
-        u_send_algo = st.selectbox(
-            "Choose Compression Algorithm for Network Dispatch:",
-            options=u_sorted_df["Algorithm"].tolist(),
-            index=0,
-            key="u_send_algo_sel"
-        )
-
-        u_chosen_row = u_sorted_df[u_sorted_df["Algorithm"] == u_send_algo].iloc[0]
-        u_send_payload = u_chosen_row["raw_comp"]
-        if not isinstance(u_send_payload, (bytes, bytearray)):
-            u_send_payload = bytes(u_send_payload)
-
-        u_comp_mb = len(u_send_payload) / (1024 * 1024)
-        u_channel_pass = (u_comp_mb <= 2.0)
-
-        t_box1, t_box2 = st.columns(2)
-        with t_box1:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-card-title">Compressed Payload Size</div>
-                <div class="metric-card-value" style="color:#34d399;">{u_comp_mb:.2f} MB</div>
-                <div style="font-size:12px; color:#94a3b8;">Original Size: {u_size_mb:.2f} MB ({u_chosen_row['Decrease (%)']:.2f}% savings)</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with t_box2:
-            st.markdown(f"""
-            <div class="metric-card" style="border: 1px solid {'#059669' if u_channel_pass else '#dc2626'};">
-                <div class="metric-card-title">Network Channel Status (2.0 MB Limit)</div>
-                <div class="metric-card-value" style="color:{'#34d399' if u_channel_pass else '#f87171'};">
-                    {'✅ PASSED (Under 2MB)' if u_channel_pass else '❌ BLOCKED'}
-                </div>
-                <div style="font-size:12px; color:#94a3b8;">Destination: <b>@{ADMIN_USERNAME} (Sole Admin)</b></div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        if st.button(f"🚀 Transmit Telemetry Package to SOC Admin @{ADMIN_USERNAME}", type="primary", use_container_width=True):
-            if not u_channel_pass:
-                st.error("Transmission blocked: Compressed payload still exceeds the 2.0 MB limit. Choose a stronger compression algorithm!")
             else:
-                try:
-                    cr_f = float(str(u_chosen_row['Comp Ratio']).replace('x', ''))
-                    tx_token = f"PKG-TEL-{int(time.time())}"
-                    db.dispatch_transmission_package(
-                        transmission_id=tx_token,
-                        sender_username=current_user["username"],
-                        recipient_username=ADMIN_USERNAME,
-                        payload_type="CSV",
-                        raw_filename=active_u_filename,
-                        raw_bytes=active_u_bytes,
-                        compressed_bytes=u_send_payload,
-                        algo_used=u_send_algo,
-                        compression_ratio=cr_f,
-                        space_saving_pct=float(u_chosen_row["Decrease (%)"]),
-                        top_3_list=top_3_u_meta,
-                        metrics_dict=u_chosen_row["metrics"]
+                st.info(f"Loaded dataset: {active_u_filename} ({u_size_mb:.2f} MB, {len(active_u_df):,} records).")
+    
+            col_pk1, col_pk2, col_pk3, col_pk4 = st.columns(4)
+            with col_pk1:
+                st.metric("Total Network Flows", f"{len(active_u_df):,}")
+            with col_pk2:
+                st.metric("Raw CSV Size", f"{u_size_mb:.2f} MB")
+            with col_pk3:
+                st.metric("Channel Limit", "2.00 MB", delta=f"{u_size_mb - 2.0:.2f} MB excess", delta_color="inverse")
+            with col_pk4:
+                st.metric("Feature Dimensions", "42 Columns", delta="UNSW-NB15")
+    
+            # 2. Multi-Algorithm Compression & Dispatch to Admin
+            st.markdown("---")
+            st.markdown("### 2. Algorithmic Compression Comparison & Transmission to Admin")
+            st.write("Compressing payload across all algorithms with real-time CPU profiling, highlighting the **Top 3 useful techniques**:")
+    
+            with st.spinner("Executing compression suite across telemetry payload..."):
+                u_comp_df, u_artifacts = run_multi_algorithm_compression_suite(
+                    data_bytes=active_u_bytes,
+                    raw_df=active_u_df
+                )
+    
+            u_sorted_df = u_comp_df.sort_values(by="Decrease (%)", ascending=False).reset_index(drop=True)
+    
+            st.dataframe(
+                u_sorted_df[[
+                    "Algorithm", "Type", "Original Size", "Compressed Size", "Decrease (%)",
+                    "Comp Ratio", "Throughput", "Latency (ms)", "Quality / PSNR", "CPU Usage (%)"
+                ]].style.format({
+                    "Decrease (%)": "{:.2f}%",
+                    "Latency (ms)": "{:.2f} ms"
+                }),
+                use_container_width=True
+            )
+    
+            st.markdown("#### 🏆 Top 3 Useful Techniques for this Telemetry")
+            top_3_u_rows = [u_sorted_df.iloc[i] for i in range(min(3, len(u_sorted_df)))]
+            top_u_cols = st.columns(3)
+            top_badges = ["🥇 1st Place", "🥈 2nd Place", "🥉 3rd Place"]
+            border_c = ["#eab308", "#94a3b8", "#b45309"]
+            top_3_u_meta = []
+    
+            for idx, t_row in enumerate(top_3_u_rows):
+                slug = t_row["Algorithm"].lower().replace(' ', '_').replace('/', '_')
+                raw_c = t_row["raw_comp"]
+                top_3_u_meta.append({
+                    "place": idx + 1,
+                    "algorithm": t_row["Algorithm"],
+                    "decrease_pct": float(t_row["Decrease (%)"]),
+                    "ratio": str(t_row["Comp Ratio"]),
+                    "psnr": str(t_row["Quality / PSNR"]),
+                    "cpu": str(t_row["CPU Usage (%)"]),
+                    "throughput": str(t_row["Throughput"]),
+                    "compressed_size": str(t_row["Compressed Size"])
+                })
+    
+                with top_u_cols[idx]:
+                    st.markdown(f"""
+                    <div class="metric-card" style="border: 1px solid {border_c[idx]}; text-align: left; padding: 14px; margin-bottom: 10px;">
+                        <div style="font-size: 11px; font-weight: 700; color: {border_c[idx]};">{top_badges[idx]}</div>
+                        <div style="font-size: 15px; font-weight: 700; color: #f8fafc; margin-top: 2px;">{t_row['Algorithm']}</div>
+                        <div style="font-size: 22px; font-weight: 700; color: #34d399; margin-top: 4px;">{t_row['Decrease (%)']:.2f}% <span style="font-size: 12px; color: #94a3b8; font-weight: 400;">decrease</span></div>
+                        <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">Ratio: <b>{t_row['Comp Ratio']}</b> &bull; CPU: <b>{t_row['CPU Usage (%)']}</b></div>
+                    </div>
+                    """, unsafe_allow_html=True)
+    
+                    c_bytes = raw_c if isinstance(raw_c, (bytes, bytearray)) else bytes(raw_c)
+                    st.download_button(
+                        f"💾 Download Compressed (.bin)",
+                        data=c_bytes,
+                        file_name=f"{slug}_telemetry.bin",
+                        mime="application/octet-stream",
+                        key=f"u_dl_top_{idx}",
+                        type="primary" if idx == 0 else "secondary",
+                        use_container_width=True
                     )
-                    st.success(f"🎉 Volumetric Telemetry **{tx_token}** successfully transmitted to SOC Admin **@{ADMIN_USERNAME}**!")
-                    st.balloons()
-                except Exception as ex:
-                    st.error(f"Dispatch error: {ex}")
-
+    
+            st.markdown("#### 3. Transmit Compressed Telemetry Package to Admin")
+            u_send_algo = st.selectbox(
+                "Choose Compression Algorithm for Network Dispatch:",
+                options=u_sorted_df["Algorithm"].tolist(),
+                index=0,
+                key="u_send_algo_sel"
+            )
+    
+            u_chosen_row = u_sorted_df[u_sorted_df["Algorithm"] == u_send_algo].iloc[0]
+            u_send_payload = u_chosen_row["raw_comp"]
+            if not isinstance(u_send_payload, (bytes, bytearray)):
+                u_send_payload = bytes(u_send_payload)
+    
+            u_comp_mb = len(u_send_payload) / (1024 * 1024)
+            u_channel_pass = (u_comp_mb <= 2.0)
+    
+            t_box1, t_box2 = st.columns(2)
+            with t_box1:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-card-title">Compressed Payload Size</div>
+                    <div class="metric-card-value" style="color:#34d399;">{u_comp_mb:.2f} MB</div>
+                    <div style="font-size:12px; color:#94a3b8;">Original Size: {u_size_mb:.2f} MB ({u_chosen_row['Decrease (%)']:.2f}% savings)</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with t_box2:
+                st.markdown(f"""
+                <div class="metric-card" style="border: 1px solid {'#059669' if u_channel_pass else '#dc2626'};">
+                    <div class="metric-card-title">Network Channel Status (2.0 MB Limit)</div>
+                    <div class="metric-card-value" style="color:{'#34d399' if u_channel_pass else '#f87171'};">
+                        {'✅ PASSED (Under 2MB)' if u_channel_pass else '❌ BLOCKED'}
+                    </div>
+                    <div style="font-size:12px; color:#94a3b8;">Destination: <b>@{ADMIN_USERNAME} (Sole Admin)</b></div>
+                </div>
+                """, unsafe_allow_html=True)
+    
+            if st.button(f"🚀 Transmit Telemetry Package to SOC Admin @{ADMIN_USERNAME}", type="primary", use_container_width=True):
+                if not u_channel_pass:
+                    st.error("Transmission blocked: Compressed payload still exceeds the 2.0 MB limit. Choose a stronger compression algorithm!")
+                else:
+                    try:
+                        cr_f = float(str(u_chosen_row['Comp Ratio']).replace('x', ''))
+                        tx_token = f"PKG-TEL-{int(time.time())}"
+                        db.dispatch_transmission_package(
+                            transmission_id=tx_token,
+                            sender_username=current_user["username"],
+                            recipient_username=ADMIN_USERNAME,
+                            payload_type="CSV",
+                            raw_filename=active_u_filename,
+                            raw_bytes=active_u_bytes,
+                            compressed_bytes=u_send_payload,
+                            algo_used=u_send_algo,
+                            compression_ratio=cr_f,
+                            space_saving_pct=float(u_chosen_row["Decrease (%)"]),
+                            top_3_list=top_3_u_meta,
+                            metrics_dict=u_chosen_row["metrics"]
+                        )
+                        st.success(f"🎉 Volumetric Telemetry **{tx_token}** successfully transmitted to SOC Admin **@{ADMIN_USERNAME}**!")
+                        st.balloons()
+                    except Exception as ex:
+                        st.error(f"Dispatch error: {ex}")
+    
     with u_tab_inbox:
         # 4. User Inbox: Returned Audit Reports from Admin
         st.markdown(f"### 📥 Returned Audit Reports & Receipts — @{current_user['username']}")

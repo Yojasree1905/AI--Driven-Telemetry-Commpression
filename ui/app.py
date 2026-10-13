@@ -9,6 +9,7 @@ import sys
 import io
 import gzip
 import bz2
+from pathlib import Path
 try:
     import psutil
     PSUTIL_AVAILABLE = True

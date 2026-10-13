@@ -22,7 +22,7 @@ try:
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import inch
     from reportlab.platypus import (
-        HRFlowable, Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+        HRFlowable, Image, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, KeepTogether
     )
     REPORTLAB_AVAILABLE = True
 except ImportError:
@@ -326,44 +326,59 @@ Containment Command:
         story.append(eval_tab)
         story.append(Spacer(1, 8))
 
-    # 4. Embedded Visual Diagnostic Charts (Threat Breakdown, Softmax Bar, Confusion Matrix, XAI)
+    # 4. Embedded Visual Diagnostic Charts (Threat Breakdown, Softmax Bar, Confusion Matrix, Metric Comparison, XAI)
     if chart_images:
-        story.append(Paragraph("3. Visual Predictive Threat Analytics & Performance Charts", h2_style))
-        story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#cbd5e1'), spaceBefore=2, spaceAfter=4))
+        story.append(PageBreak())
+        story.append(Paragraph("3. Visual Predictive Threat Analytics & Diagnostic Graphs", h2_style))
+        story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#cbd5e1'), spaceBefore=2, spaceAfter=6))
         
-        c_imgs = []
-        if "pie_chart" in chart_images:
-            c_imgs.append(Image(io.BytesIO(chart_images["pie_chart"]), width=3.5 * inch, height=2.5 * inch))
-        if "confusion_matrix" in chart_images:
-            c_imgs.append(Image(io.BytesIO(chart_images["confusion_matrix"]), width=3.5 * inch, height=2.5 * inch))
+        # Row 1: Pie Chart & Confusion Matrix
+        row1_imgs = []
+        if "pie_chart" in chart_images and chart_images["pie_chart"]:
+            row1_imgs.append(Image(io.BytesIO(chart_images["pie_chart"]), width=3.5 * inch, height=2.4 * inch))
+        if "confusion_matrix" in chart_images and chart_images["confusion_matrix"]:
+            row1_imgs.append(Image(io.BytesIO(chart_images["confusion_matrix"]), width=3.5 * inch, height=2.4 * inch))
             
-        if len(c_imgs) == 2:
-            img_tab = Table([[c_imgs[0], c_imgs[1]]], colWidths=[3.7 * inch, 3.7 * inch])
-            img_tab.setStyle(TableStyle([
+        if len(row1_imgs) == 2:
+            story.append(Paragraph("<b>Figure 1 & 2: Live Threat Breakdown & Confusion Matrix</b>", body_bold))
+            img_tab1 = Table([[row1_imgs[0], row1_imgs[1]]], colWidths=[3.7 * inch, 3.7 * inch])
+            img_tab1.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('PADDING', (0, 0), (-1, -1), 2),
             ]))
-            story.append(img_tab)
+            story.append(img_tab1)
             story.append(Spacer(1, 6))
-        elif len(c_imgs) == 1:
-            story.append(c_imgs[0])
+        elif len(row1_imgs) == 1:
+            story.append(row1_imgs[0])
             story.append(Spacer(1, 6))
 
-        if "probability_bar" in chart_images:
-            bar_img = Image(io.BytesIO(chart_images["probability_bar"]), width=7.2 * inch, height=2.0 * inch)
+        # Row 2: Multi-Class Probability Bar Chart
+        if "probability_bar" in chart_images and chart_images["probability_bar"]:
+            story.append(Paragraph("<b>Figure 3: Multi-Class Attack Category Mean Confidence Probability Breakdown (%)</b>", body_bold))
+            bar_img = Image(io.BytesIO(chart_images["probability_bar"]), width=7.2 * inch, height=1.9 * inch)
             story.append(bar_img)
             story.append(Spacer(1, 6))
 
-        # Explainable AI (XAI) SHAP and Feature Importance Plots in PDF
+        # Row 3: Metric Comparison Chart
+        if "metric_comparison" in chart_images and chart_images["metric_comparison"]:
+            story.append(Paragraph("<b>Figure 4: Model Performance Metric Comparison (Accuracy, Recall, Precision, F1)</b>", body_bold))
+            metric_img = Image(io.BytesIO(chart_images["metric_comparison"]), width=7.2 * inch, height=2.1 * inch)
+            story.append(metric_img)
+            story.append(Spacer(1, 6))
+
+        # Row 4: Explainable AI (XAI) SHAP & Feature Importance Plots
         xai_imgs = []
-        if "shap_plot" in chart_images:
-            xai_imgs.append(Image(io.BytesIO(chart_images["shap_plot"]), width=3.5 * inch, height=2.5 * inch))
-        if "feature_importance" in chart_images:
-            xai_imgs.append(Image(io.BytesIO(chart_images["feature_importance"]), width=3.5 * inch, height=2.5 * inch))
+        if "shap_plot" in chart_images and chart_images["shap_plot"]:
+            xai_imgs.append(Image(io.BytesIO(chart_images["shap_plot"]), width=3.5 * inch, height=2.4 * inch))
+        if "feature_importance" in chart_images and chart_images["feature_importance"]:
+            xai_imgs.append(Image(io.BytesIO(chart_images["feature_importance"]), width=3.5 * inch, height=2.4 * inch))
 
         if len(xai_imgs) == 2:
-            story.append(Paragraph("<b>Explainable AI (XAI) SHAP & Global Feature Importance Diagnostic Plots</b>", body_bold))
+            story.append(PageBreak())
+            story.append(Paragraph("4. Explainable AI (XAI) Threat Investigation Hub & MITRE ATT&CK Framework", h2_style))
+            story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#cbd5e1'), spaceBefore=2, spaceAfter=6))
+            story.append(Paragraph("<b>Figure 5 & 6: SHAP Global Feature Impact & Feature Importance Ranking</b>", body_bold))
             xai_tab = Table([[xai_imgs[0], xai_imgs[1]]], colWidths=[3.7 * inch, 3.7 * inch])
             xai_tab.setStyle(TableStyle([
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -375,11 +390,16 @@ Containment Command:
         elif len(xai_imgs) == 1:
             story.append(xai_imgs[0])
             story.append(Spacer(1, 6))
+        else:
+            story.append(PageBreak())
+            story.append(Paragraph("4. Explainable AI (XAI) Threat Investigation Hub & MITRE ATT&CK Framework", h2_style))
+            story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#cbd5e1'), spaceBefore=2, spaceAfter=6))
+    else:
+        story.append(PageBreak())
+        story.append(Paragraph("4. Explainable AI (XAI) Threat Investigation Hub & MITRE ATT&CK Framework", h2_style))
+        story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#cbd5e1'), spaceBefore=2, spaceAfter=6))
 
     # 5. MITRE ATT&CK Threat Intelligence Profile
-    story.append(Paragraph("4. Explainable AI (XAI) Threat Investigation Hub & MITRE ATT&CK Framework", h2_style))
-    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#cbd5e1'), spaceBefore=2, spaceAfter=4))
-
     mitre_table_data = [
         [Paragraph("<b>Attribute</b>", body_style), Paragraph("<b>MITRE ATT&CK Metric</b>", body_style)],
         [Paragraph("Technique Name", body_style), Paragraph(f"<b>{mitre_info.get('technique_name', 'N/A')}</b>", body_style)],

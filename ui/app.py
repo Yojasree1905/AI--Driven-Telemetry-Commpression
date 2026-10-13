@@ -1145,6 +1145,12 @@ else:
         plt.tight_layout()
         st.pyplot(fig_perf)
 
+        # Buffer for PDF
+        perf_buf = io.BytesIO()
+        fig_perf.savefig(perf_buf, format='png', bbox_inches='tight', dpi=180, facecolor=fig_perf.get_facecolor())
+        perf_buf.seek(0)
+        chart_img_bytes["metric_comparison"] = perf_buf.getvalue()
+
     # 4. Explainable AI (XAI) Threat Investigation Hub & MITRE
     st.markdown("---")
     st.markdown("### 4. Explainable AI (XAI) Threat Investigation Hub & MITRE ATT&CK")

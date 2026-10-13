@@ -35,10 +35,12 @@ def generate_security_incident_report_pdf(
     mitre_info,
     dominant_cat,
     raw_feat_dict,
+    *args,
     summary_counts=None,
     df_eval_matrix=None,
     utility_dict=None,
-    chart_images=None
+    chart_images=None,
+    **kwargs
 ):
     """Generate a comprehensive executive PDF report containing the complete dashboard analysis.
     

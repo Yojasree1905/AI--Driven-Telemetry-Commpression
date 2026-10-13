@@ -9,6 +9,7 @@ import sys
 import io
 import gzip
 import bz2
+import importlib
 from pathlib import Path
 
 try:
@@ -22,6 +23,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
+# Force reload pdf_generator so Streamlit Cloud server workers never keep a stale module in memory
+import src.pdf_generator
+importlib.reload(src.pdf_generator)
+from src.pdf_generator import (
+    generate_security_incident_report_pdf,
+    generate_compression_audit_report_pdf
+)
+
 from src.loader import (
     load_models_and_preprocessor,
     load_clf_model,
@@ -33,10 +42,6 @@ from src.hybrid import hybrid_predict_records
 from src.preprocessing import align_features
 from src.generator import generate_volumetric_telemetry_csv
 from src.mitre_mapping import get_mitre_details
-from src.pdf_generator import (
-    generate_security_incident_report_pdf,
-    generate_compression_audit_report_pdf
-)
 from src.compression.shannon_fano import ShannonFanoCoder
 from src.compression.huffman import HuffmanCoder
 from src.compression.lzw import LZWCoder
@@ -1254,16 +1259,21 @@ else:
             chart_images=active_charts,
             pad_to_target_bytes=int(2.15 * 1024 * 1024)
         )
+    except TypeError as te:
+        # If an older worker process had cached the legacy 5-argument signature
+        try:
+            raw_admin_pdf = generate_security_incident_report_pdf(
+                sample_row, prob_df, mitre_info, dominant_cat, sample_dict,
+                summary_counts, df_eval_matrix, utility_dict, active_charts
+            )
+        except TypeError:
+            raw_admin_pdf = generate_security_incident_report_pdf(
+                sample_row, prob_df, mitre_info, dominant_cat, sample_dict
+            )
     except Exception as e:
         st.error(f"Error compiling Executive Audit Report PDF with charts: {e}")
-        # Secondary attempt ensuring charts are present
         raw_admin_pdf = generate_security_incident_report_pdf(
-            sample_row, prob_df, mitre_info, dominant_cat, sample_dict,
-            summary_counts=summary_counts,
-            df_eval_matrix=df_eval_matrix,
-            utility_dict=utility_dict,
-            chart_images=active_charts,
-            pad_to_target_bytes=int(2.15 * 1024 * 1024)
+            sample_row, prob_df, mitre_info, dominant_cat, sample_dict
         )
 
     pdf_size_mb = len(raw_admin_pdf) / (1024 * 1024)

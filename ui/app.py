@@ -452,48 +452,7 @@ else:
             st.session_state["user"] = None
             st.rerun()
 
-    # -------------------------------------------------------------------------
-    # PEER CONNECTION REQUEST & ACCEPTANCE SYSTEM
-    # -------------------------------------------------------------------------
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### 🤝 Peer Connect (Request & Accept)")
-    
-    # Check incoming connection requests
-    pending_incoming = db.get_pending_incoming_requests(active_u["username"])
-    if pending_incoming:
-        st.sidebar.warning(f"🔔 You have {len(pending_incoming)} pending peer request(s)!")
-        for req in pending_incoming:
-            st.sidebar.write(f"Request from **@{req['sender_username']}**")
-            col_acc, col_rej = st.sidebar.columns(2)
-            with col_acc:
-                if st.button("✅ Accept", key=f"acc_{req['sender_username']}", use_container_width=True):
-                    db.accept_connection_request(req['sender_username'], active_u["username"])
-                    st.rerun()
-            with col_rej:
-                if st.button("❌ Reject", key=f"rej_{req['sender_username']}", use_container_width=True):
-                    db.reject_connection_request(req['sender_username'], active_u["username"])
-                    st.rerun()
 
-    # Send Connection Request to another user
-    all_users = db.list_all_users()
-    other_users = [u for u in all_users if u["username"] != active_u["username"]]
-    connected_peers = db.get_connected_peers(active_u["username"])
-
-    with st.sidebar.expander("➕ Connect to New User via Username"):
-        target_name_input = st.text_input("Enter Target Username (e.g. `bob`):", key="target_input_req")
-        if st.button("📤 Send Connection Request", key="send_req_btn", use_container_width=True):
-            if target_name_input.strip() and target_name_input.strip() != active_u["username"]:
-                res_code = db.send_connection_request(active_u["username"], target_name_input.strip())
-                if res_code == "ALREADY_CONNECTED":
-                    st.sidebar.info("You are already connected to this user.")
-                elif res_code == "ALREADY_PENDING":
-                    st.sidebar.info("A request is already pending.")
-                else:
-                    st.sidebar.success(f"Request sent to @{target_name_input.strip()}!")
-            else:
-                st.sidebar.error("Enter a valid other username.")
-
-    st.sidebar.markdown(f"**Connected Peers:** `{len(connected_peers)}` ({', '.join(['@'+p for p in connected_peers]) if connected_peers else 'None'})")
 
 st.sidebar.markdown("---")
 fb_active, fb_msg = db.get_firebase_status()
@@ -1336,18 +1295,23 @@ else:
             "compress it using the multi-algorithm suite and transmit it back to the originating User."
         )
 
-        target_return_user = st.session_state.get("admin_sender_user", "riya_s2023")
-        regular_users = db.list_regular_users()
-        user_names = [u["username"] for u in regular_users]
-        if target_return_user not in user_names and user_names:
-            user_names.insert(0, target_return_user)
-
-        dest_user_sel = st.selectbox(
-            "Select Recipient User for Report Return:",
-            options=user_names if user_names else [target_return_user],
-            index=0,
-            format_func=lambda u: f"👤 User @{u}"
-        )
+        target_return_user = st.session_state.get("admin_sender_user", None)
+        if target_return_user:
+            dest_user_sel = target_return_user
+            st.markdown(f"""
+            <div style="background:#0f172a; padding:10px 14px; border-radius:6px; border:1px solid #059669; font-size:13px; color:#34d399; margin-bottom:12px;">
+                👤 <b>Verified Originating User:</b> <code>@{target_return_user}</code> (Report will be returned directly to this user's private inbox)
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            regular_users = db.list_regular_users()
+            user_names = [u["username"] for u in regular_users]
+            dest_user_sel = st.selectbox(
+                "Select Recipient User for Report Return:",
+                options=user_names if user_names else ["guest_user"],
+                index=0,
+                format_func=lambda u: f"👤 User @{u}"
+            )
 
         st.markdown("---")
         st.markdown("#### 1. Generate Executive Audit Report (PDF >2.0 MB)")
@@ -1411,6 +1375,8 @@ else:
         st.markdown("#### 🏆 Top 3 Useful Techniques for this Audit Report")
         top_3_p_rows = [pdf_sorted_df.iloc[i] for i in range(min(3, len(pdf_sorted_df)))]
         top_p_cols = st.columns(3)
+        top_badges = ["🥇 1st Place", "🥈 2nd Place", "🥉 3rd Place"]
+        border_c = ["#eab308", "#94a3b8", "#b45309"]
         top_3_p_meta = []
 
         for idx, t_row in enumerate(top_3_p_rows):

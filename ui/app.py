@@ -506,18 +506,25 @@ if not is_admin:
     </div>
     """, unsafe_allow_html=True)
 
-    # 1. Telemetry Generation / Upload
-    st.markdown("### 1. Telemetry Data Ingestion (>5.0 MB)")
-    st.write(
-        "Upload your custom telemetry CSV or dynamically generate a realistic UNSW-NB15 flow dataset (>5.2 MB / 30,000+ flows). "
-        "Because network channel restricts payloads exceeding 2.0 MB, this telemetry **must be compressed** before sending to Admin."
-    )
+    # User Tabs
+    u_tab_send, u_tab_inbox = st.tabs([
+        "📤 1. Generate, Compress & Transmit Telemetry",
+        f"📥 2. User Inbox & Returned Audit Reports ({len(db.get_inbox_transmissions(current_user['username']))})"
+    ])
 
-    u_source_choice = st.radio(
-        "Telemetry Source:",
-        ["⚡ Dynamically Generate Heavy Telemetry (>5.2 MB)", "📂 Upload Custom Telemetry Log (CSV)"],
-        horizontal=True
-    )
+    with u_tab_send:
+        # 1. Telemetry Generation / Upload
+        st.markdown("### 1. Telemetry Data Ingestion (>5.0 MB)")
+        st.write(
+            "Upload your custom telemetry CSV or dynamically generate a realistic UNSW-NB15 flow dataset (>5.2 MB / 30,000+ flows). "
+            "Because network channel restricts payloads exceeding 2.0 MB, this telemetry **must be compressed** before sending to Admin."
+        )
+
+        u_source_choice = st.radio(
+            "Telemetry Source:",
+            ["⚡ Dynamically Generate Heavy Telemetry (>5.2 MB)", "📂 Upload Custom Telemetry Log (CSV)"],
+            horizontal=True
+        )
 
     active_u_df = None
     active_u_bytes = None
@@ -705,124 +712,124 @@ if not is_admin:
                 except Exception as ex:
                     st.error(f"Dispatch error: {ex}")
 
-    # 4. User Inbox: Returned Audit Reports from Admin
-    st.markdown("---")
-    st.markdown(f"### 4. Returned Audit Reports & Receipts — @{current_user['username']}")
-    user_inbox_records = db.get_inbox_transmissions(current_user["username"])
+    with u_tab_inbox:
+        # 4. User Inbox: Returned Audit Reports from Admin
+        st.markdown(f"### 📥 Returned Audit Reports & Receipts — @{current_user['username']}")
+        user_inbox_records = db.get_inbox_transmissions(current_user["username"])
 
-    if not user_inbox_records:
-        st.info("📭 Your inbox is empty. Once the SOC Admin analyzes your telemetry and returns the Audit Report PDF, it will appear here.")
-    else:
-        st.write(f"You have **{len(user_inbox_records)}** incident audit report(s) returned by Admin:")
-        pkg_opts = [
-            f"📦 {rec['transmission_id']} | From: @{rec['sender_username']} | Type: {rec['payload_type']} | Algo: {rec['comp_algo']} | Original: {rec['raw_size_bytes']/(1024*1024):.2f} MB ➔ Comp: {rec['comp_size_bytes']/(1024*1024):.2f} MB"
-            for rec in user_inbox_records
-        ]
-        chosen_idx = st.selectbox("Select Incoming Report to Inspect:", options=range(len(pkg_opts)), format_func=lambda i: pkg_opts[i])
-        chosen_tx = user_inbox_records[chosen_idx]
+        if not user_inbox_records:
+            st.info("📭 Your inbox is empty. Once the SOC Admin analyzes your telemetry and returns the Audit Report PDF, it will appear here.")
+        else:
+            st.write(f"You have **{len(user_inbox_records)}** incident audit report(s) returned by Admin:")
+            pkg_opts = [
+                f"📦 {rec['transmission_id']} | From: @{rec['sender_username']} | Type: {rec['payload_type']} | Algo: {rec['comp_algo']} | Original: {rec['raw_size_bytes']/(1024*1024):.2f} MB ➔ Comp: {rec['comp_size_bytes']/(1024*1024):.2f} MB"
+                for rec in user_inbox_records
+            ]
+            chosen_idx = st.selectbox("Select Incoming Report to Inspect:", options=range(len(pkg_opts)), format_func=lambda i: pkg_opts[i])
+            chosen_tx = user_inbox_records[chosen_idx]
 
-        st.markdown(f"""
-        <div style="background-color:#1e293b; padding:16px; border-radius:10px; border:1px solid #0284c7; margin-bottom:14px;">
-            <div style="font-size:15px; font-weight:700; color:#38bdf8;">📦 Incoming Report: {chosen_tx['transmission_id']}</div>
-            <div style="font-size:13px; color:#e2e8f0; margin-top:6px; line-height:1.6;">
-                &bull; <b>Sender:</b> @{chosen_tx['sender_username']} &bull; <b>Timestamp:</b> {chosen_tx['timestamp']}<br>
-                &bull; <b>Format:</b> {chosen_tx['payload_type']} ({chosen_tx['raw_filename']})<br>
-                &bull; <b>Compression Used:</b> <span style="color:#34d399; font-weight:700;">{chosen_tx['comp_algo']}</span><br>
-                &bull; <b>Original Size:</b> {chosen_tx['raw_size_bytes']/(1024*1024):.2f} MB ➔ <b>Compressed Blob:</b> {chosen_tx['comp_size_bytes']/(1024*1024):.2f} MB ({chosen_tx['space_saving_pct']:.2f}% savings)<br>
-                &bull; <b>SHA-256 Checksum:</b> <code>{chosen_tx['sha256_original']}</code>
+            st.markdown(f"""
+            <div style="background-color:#1e293b; padding:16px; border-radius:10px; border:1px solid #0284c7; margin-bottom:14px;">
+                <div style="font-size:15px; font-weight:700; color:#38bdf8;">📦 Incoming Report: {chosen_tx['transmission_id']}</div>
+                <div style="font-size:13px; color:#e2e8f0; margin-top:6px; line-height:1.6;">
+                    &bull; <b>Sender:</b> @{chosen_tx['sender_username']} &bull; <b>Timestamp:</b> {chosen_tx['timestamp']}<br>
+                    &bull; <b>Format:</b> {chosen_tx['payload_type']} ({chosen_tx['raw_filename']})<br>
+                    &bull; <b>Compression Used:</b> <span style="color:#34d399; font-weight:700;">{chosen_tx['comp_algo']}</span><br>
+                    &bull; <b>Original Size:</b> {chosen_tx['raw_size_bytes']/(1024*1024):.2f} MB ➔ <b>Compressed Blob:</b> {chosen_tx['comp_size_bytes']/(1024*1024):.2f} MB ({chosen_tx['space_saving_pct']:.2f}% savings)<br>
+                    &bull; <b>SHA-256 Checksum:</b> <code>{chosen_tx['sha256_original']}</code>
+                </div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
-        if st.button("🔓 Decompress & Verify Audit Report", type="primary", key="u_decomp_btn"):
-            try:
-                blob_p = PROJECT_ROOT / chosen_tx["blob_path"]
-                comp_blob = blob_p.read_bytes() if blob_p.exists() else chosen_tx["raw_filename"].encode('utf-8')
-                algo = chosen_tx["comp_algo"]
+            if st.button("🔓 Decompress & Verify Audit Report", type="primary", key="u_decomp_btn"):
+                try:
+                    blob_p = PROJECT_ROOT / chosen_tx["blob_path"]
+                    comp_blob = blob_p.read_bytes() if blob_p.exists() else chosen_tx["raw_filename"].encode('utf-8')
+                    algo = chosen_tx["comp_algo"]
 
-                if "Ensemble" in algo:
-                    ens_c = MultiAlgorithmCompressionEnsemble()
-                    decomp_bytes, _ = ens_c.decompress_tabular(comp_blob)
-                elif "Huffman" in algo:
-                    decomp_bytes = HuffmanCoder().decode(comp_blob)
-                elif "Shannon-Fano" in algo:
-                    decomp_bytes = ShannonFanoCoder().decode(comp_blob)
-                elif "LZW" in algo:
-                    decomp_bytes = LZWCoder().decode(comp_blob)
-                elif "Gzip" in algo:
-                    decomp_bytes = gzip.decompress(comp_blob)
-                elif "Bzip2" in algo:
-                    decomp_bytes = bz2.decompress(comp_blob)
-                else:
-                    decomp_bytes = comp_blob
+                    if "Ensemble" in algo:
+                        ens_c = MultiAlgorithmCompressionEnsemble()
+                        decomp_bytes, _ = ens_c.decompress_tabular(comp_blob)
+                    elif "Huffman" in algo:
+                        decomp_bytes = HuffmanCoder().decode(comp_blob)
+                    elif "Shannon-Fano" in algo:
+                        decomp_bytes = ShannonFanoCoder().decode(comp_blob)
+                    elif "LZW" in algo:
+                        decomp_bytes = LZWCoder().decode(comp_blob)
+                    elif "Gzip" in algo:
+                        decomp_bytes = gzip.decompress(comp_blob)
+                    elif "Bzip2" in algo:
+                        decomp_bytes = bz2.decompress(comp_blob)
+                    else:
+                        decomp_bytes = comp_blob
 
-                decomp_sha = db.compute_sha256(decomp_bytes)
-                is_exact_match = (decomp_sha == chosen_tx["sha256_original"])
-                mse_val = 0.0 if is_exact_match else 0.02
-                psnr_val = 999.0 if is_exact_match else 48.0
-                loss_pct = 0.0 if is_exact_match else (mse_val * 100.0)
+                    decomp_sha = db.compute_sha256(decomp_bytes)
+                    is_exact_match = (decomp_sha == chosen_tx["sha256_original"])
+                    mse_val = 0.0 if is_exact_match else 0.02
+                    psnr_val = 999.0 if is_exact_match else 48.0
+                    loss_pct = 0.0 if is_exact_match else (mse_val * 100.0)
 
-                db.record_audit_receipt(
-                    receipt_id=f"RCPT-{int(time.time())}",
-                    transmission_id=chosen_tx["transmission_id"],
-                    auditor_username=current_user["username"],
-                    decompressed_bytes=decomp_bytes,
-                    mse=mse_val,
-                    psnr=psnr_val,
-                    notes=f"Audited by User @{current_user['username']}."
-                )
-
-                st.markdown("### 🛡️ Receiver Data Loss & Reconstruction Quality Verification")
-                q1, q2, q3 = st.columns(3)
-                with q1:
-                    st.markdown(f"""
-                    <div class="metric-card" style="border: 1px solid {'#059669' if is_exact_match else '#dc2626'};">
-                        <div class="metric-card-title">Cryptographic Integrity</div>
-                        <div style="font-size:20px; font-weight:700; color:{'#34d399' if is_exact_match else '#f87171'};">
-                            {'100% BIT-EXACT' if is_exact_match else 'HASH MISMATCH'}
-                        </div>
-                        <div style="font-size:12px; color:#94a3b8;">SHA-256 Verified</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                with q2:
-                    st.markdown(f"""
-                    <div class="metric-card" style="border: 1px solid #0284c7;">
-                        <div class="metric-card-title">Measured Data Loss %</div>
-                        <div style="font-size:20px; font-weight:700; color:#38bdf8;">{loss_pct:.2f}%</div>
-                        <div style="font-size:12px; color:#94a3b8;">Reconstruction MSE: {mse_val:.4f}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                with q3:
-                    st.markdown(f"""
-                    <div class="metric-card" style="border: 1px solid #a855f7;">
-                        <div class="metric-card-title">Reconstruction Quality / PSNR</div>
-                        <div style="font-size:20px; font-weight:700; color:#c084fc;">
-                            {'∞ dB (Perfect Fidelity)' if is_exact_match else f'{psnr_val:.1f} dB'}
-                        </div>
-                        <div style="font-size:12px; color:#94a3b8;">Downstream AI Feature Usability: 100.0%</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                if chosen_tx["payload_type"] == "PDF":
-                    st.download_button(
-                        "📄 Download Reconstructed Executive Audit Report (PDF)",
-                        data=decomp_bytes,
-                        file_name=f"{chosen_tx['transmission_id']}_incident_report.pdf",
-                        mime="application/pdf",
-                        type="primary",
-                        use_container_width=True
+                    db.record_audit_receipt(
+                        receipt_id=f"RCPT-{int(time.time())}",
+                        transmission_id=chosen_tx["transmission_id"],
+                        auditor_username=current_user["username"],
+                        decompressed_bytes=decomp_bytes,
+                        mse=mse_val,
+                        psnr=psnr_val,
+                        notes=f"Audited by User @{current_user['username']}."
                     )
-                else:
-                    st.download_button(
-                        "📊 Download Reconstructed File",
-                        data=decomp_bytes,
-                        file_name=f"{chosen_tx['transmission_id']}_decompressed.csv",
-                        mime="text/csv",
-                        type="primary",
-                        use_container_width=True
-                    )
-            except Exception as ex:
-                st.error(f"Decompression error: {ex}")
+
+                    st.markdown("### 🛡️ Receiver Data Loss & Reconstruction Quality Verification")
+                    q1, q2, q3 = st.columns(3)
+                    with q1:
+                        st.markdown(f"""
+                        <div class="metric-card" style="border: 1px solid {'#059669' if is_exact_match else '#dc2626'};">
+                            <div class="metric-card-title">Cryptographic Integrity</div>
+                            <div style="font-size:20px; font-weight:700; color:{'#34d399' if is_exact_match else '#f87171'};">
+                                {'100% BIT-EXACT' if is_exact_match else 'HASH MISMATCH'}
+                            </div>
+                            <div style="font-size:12px; color:#94a3b8;">SHA-256 Verified</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    with q2:
+                        st.markdown(f"""
+                        <div class="metric-card" style="border: 1px solid #0284c7;">
+                            <div class="metric-card-title">Measured Data Loss %</div>
+                            <div style="font-size:20px; font-weight:700; color:#38bdf8;">{loss_pct:.2f}%</div>
+                            <div style="font-size:12px; color:#94a3b8;">Reconstruction MSE: {mse_val:.4f}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    with q3:
+                        st.markdown(f"""
+                        <div class="metric-card" style="border: 1px solid #a855f7;">
+                            <div class="metric-card-title">Reconstruction Quality / PSNR</div>
+                            <div style="font-size:20px; font-weight:700; color:#c084fc;">
+                                {'∞ dB (Perfect Fidelity)' if is_exact_match else f'{psnr_val:.1f} dB'}
+                            </div>
+                            <div style="font-size:12px; color:#94a3b8;">Downstream AI Feature Usability: 100.0%</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                    if chosen_tx["payload_type"] == "PDF":
+                        st.download_button(
+                            "📄 Download Reconstructed Executive Audit Report (PDF)",
+                            data=decomp_bytes,
+                            file_name=f"{chosen_tx['transmission_id']}_incident_report.pdf",
+                            mime="application/pdf",
+                            type="primary",
+                            use_container_width=True
+                        )
+                    else:
+                        st.download_button(
+                            "📊 Download Reconstructed File",
+                            data=decomp_bytes,
+                            file_name=f"{chosen_tx['transmission_id']}_decompressed.csv",
+                            mime="text/csv",
+                            type="primary",
+                            use_container_width=True
+                        )
+                except Exception as ex:
+                    st.error(f"Decompression error: {ex}")
 
 else:
     # =========================================================================

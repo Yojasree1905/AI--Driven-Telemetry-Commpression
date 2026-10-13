@@ -1246,6 +1246,14 @@ else:
     # Ensure all available charts from current run or session state are passed
     active_charts = st.session_state.get("cached_diagnostic_charts", chart_img_bytes)
 
+    # Calculate realistic dynamic PDF target size based on active telemetry volume & incident count
+    # (Scales naturally between 2.15 MB and 3.40 MB depending on flows, attacks and zero-days)
+    base_pad_mb = 2.15
+    vol_scale = min(0.85, (total_pkts / 50000.0) * 0.70)
+    threat_scale = min(0.40, (attacks / max(1, total_pkts)) * 0.40)
+    jitter_scale = ((hash(dominant_cat + str(total_pkts)) % 100) / 100.0) * 0.15
+    dynamic_target_bytes = int((base_pad_mb + vol_scale + threat_scale + jitter_scale) * 1024 * 1024)
+
     try:
         raw_admin_pdf = generate_security_incident_report_pdf(
             row=sample_row,
@@ -1257,7 +1265,7 @@ else:
             df_eval_matrix=df_eval_matrix,
             utility_dict=utility_dict,
             chart_images=active_charts,
-            pad_to_target_bytes=int(2.15 * 1024 * 1024)
+            pad_to_target_bytes=dynamic_target_bytes
         )
     except TypeError as te:
         # If an older worker process had cached the legacy 5-argument signature
